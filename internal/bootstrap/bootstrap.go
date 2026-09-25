@@ -147,8 +147,10 @@ var Harnesses = []*Harness{
 	{
 		ID: "codex", Name: "Codex", Bins: []string{"codex"}, Dir: ".codex",
 		MCP: true, Hooks: false,
-		Gets:      "skill, MCP server",
-		install:   cliMCP(".codex/skills", []string{"codex", "mcp", "remove", "holler"}, func(bin string) []string { return []string{"codex", "mcp", "add", "holler", "--", bin, "mcp"} }),
+		Gets: "skill, MCP server",
+		install: cliMCP(".codex/skills", []string{"codex", "mcp", "remove", "holler"}, func(bin string) []string {
+			return []string{"codex", "mcp", "add", "holler", "--", bin, "mcp", "--harness", "codex"}
+		}),
 		uninstall: cliUninstall(".codex/skills", []string{"codex", "mcp", "remove", "holler"}),
 		status:    tomlStatus(".codex/skills", ".codex/config.toml"),
 	},
@@ -171,8 +173,10 @@ var Harnesses = []*Harness{
 	{
 		ID: "copilot", Name: "GitHub Copilot CLI", Bins: []string{"copilot"}, Dir: ".copilot",
 		MCP: true, Hooks: false,
-		Gets:      "skill, MCP server",
-		install:   cliMCP(".copilot/skills", []string{"copilot", "mcp", "remove", "holler"}, func(bin string) []string { return []string{"copilot", "mcp", "add", "holler", "--", bin, "mcp"} }),
+		Gets: "skill, MCP server",
+		install: cliMCP(".copilot/skills", []string{"copilot", "mcp", "remove", "holler"}, func(bin string) []string {
+			return []string{"copilot", "mcp", "add", "holler", "--", bin, "mcp", "--harness", "copilot"}
+		}),
 		uninstall: cliUninstall(".copilot/skills", []string{"copilot", "mcp", "remove", "holler"}),
 		status:    jsonMCPStatus(".copilot/skills", ".copilot/mcp-config.json"),
 	},
@@ -181,7 +185,7 @@ var Harnesses = []*Harness{
 		MCP: true, Hooks: false,
 		Gets: "skill, MCP server",
 		install: cliMCP(".grok/skills", []string{"grok", "mcp", "remove", "holler"}, func(bin string) []string {
-			return []string{"grok", "mcp", "add", "-s", "user", "holler", bin, "--", "mcp"}
+			return []string{"grok", "mcp", "add", "-s", "user", "holler", bin, "--", "mcp", "--harness", "grok"}
 		}),
 		uninstall: cliUninstall(".grok/skills", []string{"grok", "mcp", "remove", "holler"}),
 		status:    tomlStatus(".grok/skills", ".grok/config.toml"),
@@ -518,7 +522,7 @@ func installCursor(ctx context.Context, e *Env) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		servers.set("holler", map[string]any{"command": e.Bin, "args": []string{"mcp"}})
+		servers.set("holler", map[string]any{"command": e.Bin, "args": []string{"mcp", "--harness", "cursor"}})
 		return o.set("mcpServers", servers)
 	}); err != nil {
 		return did, err
@@ -711,7 +715,7 @@ func installGemini(ctx context.Context, e *Env) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		servers.set("holler", map[string]any{"command": e.Bin, "args": []string{"mcp"}})
+		servers.set("holler", map[string]any{"command": e.Bin, "args": []string{"mcp", "--harness", "gemini"}})
 		if err := o.set("mcpServers", servers); err != nil {
 			return err
 		}

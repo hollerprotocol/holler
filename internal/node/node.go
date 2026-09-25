@@ -31,6 +31,10 @@ type Config struct {
 	Name  string
 	About string
 
+	// Harness is the agent harness this node runs in (internal/harness),
+	// shared in presence. Remembered like the name.
+	Harness string
+
 	// Listen lists addresses to accept connections on: "tailcat",
 	// "tcp:host:port" or "unix:/path".
 	Listen []string
@@ -173,7 +177,7 @@ func Open(cfg Config) (*Node, error) {
 	for _, f := range []struct {
 		key string
 		v   *string
-	}{{"name", &n.cfg.Name}, {"about", &n.cfg.About}} {
+	}{{"name", &n.cfg.Name}, {"about", &n.cfg.About}, {"harness", &n.cfg.Harness}} {
 		if *f.v != "" {
 			st.SetKV(f.key, *f.v)
 		} else if v, ok, _ := st.GetKV(f.key); ok {
@@ -193,6 +197,9 @@ func (n *Node) Key() string { return n.key }
 
 // Name returns this peer's name.
 func (n *Node) Name() string { return n.cfg.Name }
+
+// Harness returns the agent harness this node runs in, or "".
+func (n *Node) Harness() string { return n.cfg.Harness }
 
 // Store exposes the store for read-only queries by the control server.
 func (n *Node) Store() *store.Store { return n.st }

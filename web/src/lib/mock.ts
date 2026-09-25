@@ -8,6 +8,7 @@ const k = (s: string) => "ed25519:" + (s + "Xy7Qm2Lp9Rt4Vw8Zb1Nc6Hd3Jf5Kg0Ps").s
 interface MAgent {
   key: string
   name: string
+  harness?: string
   about: string
   hops: number
   via?: string
@@ -19,12 +20,12 @@ interface MAgent {
 const SELF = k("ops")
 const agents: MAgent[] = [
   { key: SELF, name: "ops@laptop", about: "watching the network", hops: 0, direct: false, status: "self", sharing: true },
-  { key: k("worker"), name: "claude-code@worker", about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
-  { key: k("boss"), name: "claude-code@boss", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("builder"), name: "codex@builder", about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("research"), name: "gemini@research", about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
-  { key: k("front"), name: "cursor@frontend", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
-  { key: k("sleepy"), name: "pi@nightly", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
+  { key: k("worker"), name: "claude-code@worker", harness: "claude", about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("boss"), name: "claude-code@boss", harness: "claude", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
+  { key: k("builder"), name: "codex@builder", harness: "codex", about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
+  { key: k("research"), name: "gemini@research", harness: "gemini", about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("front"), name: "cursor@frontend", harness: "cursor", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
+  { key: k("sleepy"), name: "pi@nightly", harness: "pi", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
 ]
 
 const links: Link[] = [
@@ -98,6 +99,7 @@ function view(): State {
       key: a.key,
       short: a.key.slice(8, 18),
       name: a.name,
+      harness: a.harness,
       about: a.about,
       version: "0.2.0",
       status: a.status,

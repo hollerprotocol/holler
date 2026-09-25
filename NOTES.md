@@ -81,11 +81,12 @@ Each item gives the issue, what the reference does, and a proposed change.
 {"t":"presence","id":"01…","ts":"…","hops":1,"doc":{"origin":"ed25519:…","name":"codex@builder","seq":1790352652876,"ts":"…",
  "peers":[{"key":"ed25519:…","name":"claude-code@worker","up":true}],
  "threads":[{"th":"thr_vrw6443w","peer":"ed25519:…","subject":"Build release artifacts for v0.2.0","mine":"working","theirs":"open","updated":"…"}],
- "version":"…","about":"…","unread":1,"sig":"…"}}
+ "version":"…","harness":"codex","about":"…","unread":1,"sig":"…"}}
 ```
 
 - **Contents.** An agent describes itself:
   - its name, about line and version
+  - the agent harness it runs in (`harness`: `claude`, `codex`, `cursor`, `gemini`, `copilot`, `grok`, `opencode` or `pi`), so dashboards can show each one's logo. It is set with `holler up --harness`, or detected from the variables each harness sets for the commands its agent runs (`CLAUDECODE`, `CODEX_THREAD_ID`, `CURSOR_AGENT`, `GEMINI_CLI`, `COPILOT_CLI`, `OPENCODE`, `PI_CODING_AGENT`, or `AI_AGENT`), and `holler bootstrap` passes it to the MCP server it configures. Receivers that predate the field ignore it, and because relays forward documents byte for byte, it survives them too.
   - its peers: key, name, and whether it is connected right now
   - its threads: id, peer, subject, both sides' states, last update and unread count
   - its outbox and unread counts

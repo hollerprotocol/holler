@@ -30,7 +30,7 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
             className={`relative z-10 flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2.5 text-left ${selected === a.key ? "bg-hover" : ""}`}
           >
             <span className="relative">
-              <Orb agentKey={a.key} size={34} working={a.working} dim={dim} />
+              <Orb agentKey={a.key} size={34} working={a.working} dim={dim} harness={a.harness} />
               <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface" style={{ background: DOT[a.status] }} />
             </span>
             <span className="min-w-0 flex-1">

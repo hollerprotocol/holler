@@ -128,11 +128,11 @@ func TestCLIHarnesses(t *testing.T) {
 	}
 	want := [][]string{
 		{"codex", "mcp", "remove", "holler"},
-		{"codex", "mcp", "add", "holler", "--", bin, "mcp"},
+		{"codex", "mcp", "add", "holler", "--", bin, "mcp", "--harness", "codex"},
 		{"grok", "mcp", "remove", "holler"},
-		{"grok", "mcp", "add", "-s", "user", "holler", bin, "--", "mcp"},
+		{"grok", "mcp", "add", "-s", "user", "holler", bin, "--", "mcp", "--harness", "grok"},
 		{"copilot", "mcp", "remove", "holler"},
-		{"copilot", "mcp", "add", "holler", "--", bin, "mcp"},
+		{"copilot", "mcp", "add", "holler", "--", bin, "mcp", "--harness", "copilot"},
 	}
 	if !reflect.DeepEqual(*calls, want) {
 		t.Fatalf("calls:\n%v\nwant:\n%v", *calls, want)
@@ -226,7 +226,7 @@ func TestGeminiKeepsUserConfig(t *testing.T) {
 		} `json:"hooks"`
 	}
 	json.Unmarshal([]byte(read(t, settings)), &cfg)
-	if s := cfg.MCPServers["holler"]; s.Command != bin || !reflect.DeepEqual(s.Args, []string{"mcp"}) {
+	if s := cfg.MCPServers["holler"]; s.Command != bin || !reflect.DeepEqual(s.Args, []string{"mcp", "--harness", "gemini"}) {
 		t.Fatalf("mcpServers %+v", cfg.MCPServers)
 	}
 	after := cfg.Hooks["AfterTool"]
@@ -280,7 +280,7 @@ func TestOpencode(t *testing.T) {
 		} `json:"mcp"`
 	}
 	json.Unmarshal([]byte(read(t, cfg)), &c)
-	if s := c.MCP["holler"]; c.Model == "" || c.MCP["other"].Type != "local" || s.Type != "local" || !reflect.DeepEqual(s.Command, []string{bin, "mcp"}) || !s.Enabled {
+	if s := c.MCP["holler"]; c.Model == "" || c.MCP["other"].Type != "local" || s.Type != "local" || !reflect.DeepEqual(s.Command, []string{bin, "mcp", "--harness", "opencode"}) || !s.Enabled {
 		t.Fatalf("opencode.json:\n%s", read(t, cfg))
 	}
 	plugin := read(t, filepath.Join(dir, "plugins/holler.js"))

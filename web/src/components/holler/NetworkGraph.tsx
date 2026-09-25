@@ -363,7 +363,7 @@ export function NetworkGraph({
                   isSel ? "shadow-[0_0_0_2px_var(--ink)]" : "shadow-[0_0_0_0px_transparent] group-hover:shadow-[0_0_0_1px_var(--line-strong)]"
                 }`}
               />
-              <Orb agentKey={a.key} size={sz} working={a.working} dim={dim} className="transition-transform duration-300 group-hover:scale-[1.04]" />
+              <Orb agentKey={a.key} size={sz} working={a.working} dim={dim} harness={a.harness} className="transition-transform duration-300 group-hover:scale-[1.04]" />
               {self && (
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-ink px-1.5 py-px text-[9.5px] font-semibold tracking-wide text-page uppercase shadow-btn">
                   host

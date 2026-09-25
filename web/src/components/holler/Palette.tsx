@@ -7,6 +7,7 @@ import type { Agent, State, Thread } from "@/lib/types"
 
 import { StatePill } from "./chips"
 import { Orb } from "./Orb"
+import { harnessName } from "@/lib/harness"
 
 type Item = { kind: "agent"; agent: Agent } | { kind: "thread"; thread: Thread }
 
@@ -33,7 +34,7 @@ export function Palette({
     const s = q.trim().toLowerCase()
     const hit = (...xs: (string | undefined)[]) => !s || xs.some((x) => x?.toLowerCase().includes(s))
     return [
-      ...state.agents.filter((a) => hit(a.name, a.about, a.short, a.key)).map((agent) => ({ kind: "agent" as const, agent })),
+      ...state.agents.filter((a) => hit(a.name, a.about, a.short, a.key, a.harness, harnessName(a.harness))).map((agent) => ({ kind: "agent" as const, agent })),
       ...state.threads
         .filter((t) => hit(t.subject, t.th, agents.get(t.a)?.name, agents.get(t.b)?.name, t.a_state, t.b_state))
         .map((thread) => ({ kind: "thread" as const, thread })),
@@ -107,7 +108,7 @@ export function Palette({
                   >
                     {it.kind === "agent" ? (
                       <>
-                        <Orb agentKey={it.agent.key} size={22} working={it.agent.working} />
+                        <Orb agentKey={it.agent.key} size={22} working={it.agent.working} harness={it.agent.harness} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13.5px] font-medium text-ink">{agentName(it.agent)}</span>
                           {it.agent.about && <span className="block truncate text-[12px] text-ink-3">{it.agent.about}</span>}

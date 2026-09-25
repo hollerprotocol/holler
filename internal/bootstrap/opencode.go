@@ -76,7 +76,7 @@ func installOpencode(ctx context.Context, e *Env) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		mcp.set("holler", map[string]any{"type": "local", "command": []string{e.Bin, "mcp"}, "enabled": true})
+		mcp.set("holler", map[string]any{"type": "local", "command": []string{e.Bin, "mcp", "--harness", "opencode"}, "enabled": true})
 		return o.set("mcp", mcp)
 	}); err != nil {
 		return did, err

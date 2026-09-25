@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hollerprotocol/holler/internal/api"
+	"github.com/hollerprotocol/holler/internal/harness"
 	"github.com/hollerprotocol/holler/internal/store"
 	"github.com/hollerprotocol/holler/wire"
 )
@@ -34,6 +35,7 @@ type Agent struct {
 	Name    string     `json:"name"`
 	About   string     `json:"about,omitempty"`
 	Version string     `json:"version,omitempty"`
+	Harness string     `json:"harness,omitempty"` // claude, codex, ...: declared, else guessed from the name
 	Status  string     `json:"status"`
 	Sharing bool       `json:"sharing"`
 	Direct  bool       `json:"direct"`
@@ -180,6 +182,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 	me := add(st.Key)
 	me.Status, me.Sharing, me.Version, me.Hops, me.Seen = statusSelf, st.Presence, st.Version, 0, seen(now)
 	me.About = cmp.Or(realAbout(net.Self.About), realAbout(st.About))
+	me.Harness = st.Harness
 
 	links := map[[2]string]*Link{}
 	link := func(x, y string, up bool) {
@@ -210,6 +213,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 	for _, v := range net.Agents {
 		a := add(v.Origin)
 		a.Sharing, a.Version = true, v.Version
+		a.Harness = cmp.Or(harness.Normalize(v.Harness), a.Harness)
 		a.About = cmp.Or(realAbout(v.About), a.About)
 		if a.Status != statusConnected {
 			if v.Status == api.AgentStale {
@@ -323,6 +327,9 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 		}
 		if a.Name == "" {
 			a.Name = names[a.Key]
+		}
+		if a.Harness == "" {
+			a.Harness = harness.FromName(a.Name)
 		}
 		s.Agents = append(s.Agents, *a)
 	}

@@ -2,6 +2,9 @@ import { agentName, agoText, splitName } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent, State, Thread } from "@/lib/types"
 
+import { harnessName } from "@/lib/harness"
+
+import { HarnessLogo } from "./HarnessLogo"
 import { AgentChip } from "./chips"
 import { CopyButton } from "./Copy"
 import { Orb } from "./Orb"
@@ -45,7 +48,7 @@ export function AgentDetail({
   const dim = agent.status === "stale" || agent.status === "offline"
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <header className="relative overflow-hidden px-6 pt-10 pb-6">
         <div
           aria-hidden
@@ -53,7 +56,7 @@ export function AgentDetail({
           style={{ background: "radial-gradient(circle, var(--glow-a), transparent 65%)" }}
         />
         <div className="relative flex flex-col items-center text-center">
-          <Orb agentKey={agent.key} size={104} working={agent.working} dim={dim} />
+          <Orb agentKey={agent.key} size={104} working={agent.working} dim={dim} harness={agent.harness} />
           <h2 className="mt-5 text-[26px] leading-tight font-semibold tracking-[-0.025em] text-ink">{who}</h2>
           {host && <p className="text-[14px] text-ink-3">@{host}</p>}
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-medium text-ink-2 shadow-hairline">
@@ -76,6 +79,14 @@ export function AgentDetail({
               <CopyButton text={agent.key} />
             </span>
           </Fact>
+          {agent.harness && (
+            <Fact label="Harness">
+              <span className="flex items-center gap-2 text-ink">
+                <HarnessLogo harness={agent.harness} size={16} />
+                {harnessName(agent.harness)}
+              </span>
+            </Fact>
+          )}
           <Fact label="Route">
             {agent.status === "self" ? (
               "This is the host serving this dashboard"

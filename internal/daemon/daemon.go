@@ -238,6 +238,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		Short:       wire.ShortKey(n.Key()),
 		Name:        n.Name(),
 		About:       d.cfg.About,
+		Harness:     n.Harness(),
 		Fingerprint: wire.Fingerprint(pub),
 		Version:     version.String(),
 		Home:        d.cfg.Home,

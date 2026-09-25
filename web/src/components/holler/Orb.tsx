@@ -2,13 +2,16 @@ import type { CSSProperties } from "react"
 
 import { orbColors } from "@/lib/orb"
 
+import { HarnessBadge } from "./HarnessLogo"
+
 /** An agent's gradient orb. Working agents breathe and swirl faster; quiet
- *  ones fade to grey. */
+ *  ones fade to grey. With a harness, its logo sits on the orb's edge. */
 export function Orb({
   agentKey,
   size = 32,
   working = false,
   dim = false,
+  harness,
   className = "",
   style,
 }: {
@@ -16,11 +19,12 @@ export function Orb({
   size?: number
   working?: boolean
   dim?: boolean
+  harness?: string
   className?: string
   style?: CSSProperties
 }) {
   const c = orbColors(agentKey)
-  return (
+  const orb = (
     <span
       aria-hidden
       className={`orb inline-block shrink-0 ${working ? "is-working" : ""} ${dim ? "is-dim" : ""} ${className}`}
@@ -35,5 +39,13 @@ export function Orb({
         } as CSSProperties
       }
     />
+  )
+  if (!harness) return orb
+  const badge = Math.max(13, Math.round(size * 0.46))
+  return (
+    <span className="relative inline-flex shrink-0">
+      {orb}
+      <HarnessBadge harness={harness} size={badge} className="absolute" style={{ right: -badge * 0.12, bottom: -badge * 0.12 }} />
+    </span>
   )
 }

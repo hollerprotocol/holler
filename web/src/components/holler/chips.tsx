@@ -5,6 +5,8 @@ import type { Agent, ThreadState } from "@/lib/types"
 
 import { orbBackground } from "@/lib/orb"
 
+import { HarnessLogo } from "./HarnessLogo"
+
 /** An agent inline: its orb as the monogram, then its name. */
 export function AgentChip({
   agentKey,
@@ -19,11 +21,19 @@ export function AgentChip({
 }) {
   const name = agentName(agent, agentKey.slice(8, 18))
   const { who } = splitName(name)
+  // Known harnesses show their logo on a plain disc; others the orb's colour
+  // and an initial.
   const chip = (
     <EntityChip
       name={name}
-      color={orbBackground(agentKey)}
-      monogram={<span className="text-[8.5px] font-semibold text-white/90 [text-shadow:0_0_2px_oklch(0_0_0/0.35)]">{who.charAt(0).toUpperCase()}</span>}
+      color={agent?.harness ? "var(--card)" : orbBackground(agentKey)}
+      monogram={
+        agent?.harness ? (
+          <HarnessLogo harness={agent.harness} size={11} />
+        ) : (
+          <span className="text-[8.5px] font-semibold text-white/90 [text-shadow:0_0_2px_oklch(0_0_0/0.35)]">{who.charAt(0).toUpperCase()}</span>
+        )
+      }
       className={`mx-0 max-w-full [&>span:last-child]:truncate ${className}`}
     />
   )

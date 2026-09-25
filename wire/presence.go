@@ -38,6 +38,7 @@ type Presence struct {
 	Name    string           `json:"name,omitempty"`
 	About   string           `json:"about,omitempty"`
 	Version string           `json:"version,omitempty"`
+	Harness string           `json:"harness,omitempty"` // the agent harness: claude, codex, cursor, ...
 	Seq     int64            `json:"seq"`
 	TS      string           `json:"ts"`
 	Peers   []PresencePeer   `json:"peers,omitempty"`

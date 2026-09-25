@@ -16,6 +16,7 @@ import (
 
 	"github.com/hollerprotocol/holler/internal/api"
 	"github.com/hollerprotocol/holler/internal/daemon"
+	"github.com/hollerprotocol/holler/internal/harness"
 	"github.com/hollerprotocol/holler/internal/mcp"
 	"github.com/hollerprotocol/holler/internal/store"
 	"github.com/hollerprotocol/holler/internal/transport"
@@ -34,6 +35,7 @@ func cmdDaemon(ctx context.Context, args []string) error {
 	noTailcat := f.Bool("no-tailcat", false, "do not listen on tailcat")
 	name := f.String("name", "", "name sent in hello (default holler@HOSTNAME)")
 	about := f.String("about", "", "free-text description sent in hello")
+	harnessFlag := f.String("harness", "", "agent harness this agent runs in: "+strings.Join(harness.IDs(), ", ")+" (default: detected; remembered)")
 	advertise := f.String("advertise", "", "address sent in hello for the peer to dial back (none to disable)")
 	serve := f.StringSlice("serve", nil, "capabilities to fulfil automatically for granted peers: exec, fs:read, fs:write")
 	root := f.String("root", "", "directory that fs:read/fs:write are confined to and exec runs in")
@@ -69,6 +71,11 @@ func cmdDaemon(ctx context.Context, args []string) error {
 	}
 	set(&cfg.Name, *name)
 	set(&cfg.About, *about)
+	if *harnessFlag != "" {
+		if cfg.Harness = harness.Normalize(*harnessFlag); cfg.Harness == "" {
+			return fmt.Errorf("unknown harness %q (known: %s)", *harnessFlag, strings.Join(harness.IDs(), ", "))
+		}
+	}
 	set(&cfg.Advertise, *advertise)
 	set(&cfg.Policy.Root, *root)
 	set(&cfg.Policy.Accept, *accept)
@@ -87,6 +94,7 @@ func cmdUp(ctx context.Context, args []string) error {
 	f := newFlags("up", "", "Start the daemon in the background if it is not running, wait for the tailcat\naddress, and print the identity and the address to share.")
 	name := f.String("name", "", "name to present to peers, e.g. claude-code@myhost (remembered)")
 	about := f.String("about", "", "what you are working on, sent in hello (remembered)")
+	harnessFlag := f.String("harness", "", "agent harness this agent runs in: "+strings.Join(harness.IDs(), ", ")+" (default: detected; remembered)")
 	presence := f.Bool("presence", false, "publish signed presence so holler watch on connected hosts can see this agent")
 	if err := f.Parse(args); err != nil {
 		return err
@@ -100,8 +108,11 @@ func cmdUp(ctx context.Context, args []string) error {
 	if *about != "" {
 		os.Setenv("HOLLER_ABOUT", *about)
 	}
-	if (*name != "" || *about != "") && f.client().Running() {
-		fmt.Fprintln(os.Stderr, "note: the daemon is already running; --name/--about apply from its next start (holler down; holler up ...)")
+	if err := setHarnessEnv(*harnessFlag); err != nil {
+		return err
+	}
+	if (*name != "" || *about != "" || *harnessFlag != "") && f.client().Running() {
+		fmt.Fprintln(os.Stderr, "note: the daemon is already running; --name/--about/--harness apply from its next start (holler down; holler up ...)")
 	}
 	c, err := f.ensureDaemon()
 	if err != nil {
@@ -840,9 +851,25 @@ func cmdBlobs(ctx context.Context, args []string) error {
 func cmdMCP(ctx context.Context, args []string) error {
 	f := newFlags("mcp", "", "Serve holler as an MCP server on stdin/stdout. Tools: holler_listen,\nholler_connect, holler_send, holler_read, holler_state, holler_grant,\nholler_status. Inbound messages are pushed as Claude Code channel\nnotifications when the client registers for them (or with --channel).")
 	channel := f.Bool("channel", os.Getenv("HOLLER_CHANNEL") == "1", "always push inbound messages as channel notifications")
+	harnessFlag := f.String("harness", "", "agent harness this server runs in, for a daemon it starts (holler bootstrap sets it)")
 	if err := f.Parse(args); err != nil {
+		return err
+	}
+	if err := setHarnessEnv(*harnessFlag); err != nil {
 		return err
 	}
 	s := &mcp.Server{Ensure: f.ensureDaemon, Channel: *channel}
 	return s.Run(ctx, os.Stdin, os.Stdout)
+}
+
+// setHarnessEnv passes --harness to a daemon this command starts.
+func setHarnessEnv(v string) error {
+	if v == "" {
+		return nil
+	}
+	id := harness.Normalize(v)
+	if id == "" {
+		return fmt.Errorf("unknown harness %q (known: %s)", v, strings.Join(harness.IDs(), ", "))
+	}
+	return os.Setenv("HOLLER_HARNESS", id)
 }

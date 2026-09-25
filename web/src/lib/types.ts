@@ -37,6 +37,10 @@ export interface Agent {
   name: string // e.g. "claude-code@worker"; may be ""
   about?: string // what it says it is working on
   version?: string
+  // The agent harness: "claude" (Claude Code), "codex", "cursor", "gemini",
+  // "copilot", "grok", "opencode" or "pi". Declared in presence, else guessed
+  // from the name ("claude-code@host"); absent when unknown.
+  harness?: string
   status: AgentStatus
   sharing: boolean // publishes presence (else we only know it as a peer)
   direct: boolean // connected to the host

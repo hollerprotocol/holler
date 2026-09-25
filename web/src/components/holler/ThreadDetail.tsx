@@ -51,7 +51,7 @@ function Bubble({ m, mine, agent, fresh }: { m: Message; mine: boolean; agent?: 
   const who = agentName(agent, m.from.slice(8, 18))
   return (
     <div className={`flex gap-2.5 ${mine ? "flex-row-reverse" : ""}`} style={fresh ? { animation: "rise-in 420ms var(--ease-out-strong) both" } : undefined}>
-      <Orb agentKey={m.from} size={26} className="mt-5" />
+      <Orb agentKey={m.from} size={26} harness={agent?.harness} className="mt-5" />
       <div className={`flex min-w-0 max-w-[88%] flex-col ${mine ? "items-end" : "items-start"}`}>
         <div className="mb-1 flex items-center gap-1.5 px-1 text-[11.5px] text-ink-3">
           <span className="font-medium text-ink-2">{who}</span>
@@ -129,7 +129,7 @@ function Remote({ thread, agents }: { thread: Thread; agents: Map<string, Agent>
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
       <div className="flex items-center">
         <div className="flex w-32 flex-col items-center gap-2">
-          <Orb agentKey={thread.a} size={64} working={a?.working} />
+          <Orb agentKey={thread.a} size={64} working={a?.working} harness={a?.harness} />
           <span className="max-w-full truncate text-[12.5px] font-medium text-ink">{agentName(a)}</span>
           <StatePill state={thread.a_state} />
         </div>
@@ -140,7 +140,7 @@ function Remote({ thread, agents }: { thread: Thread; agents: Map<string, Agent>
           <path d="M44.5 9.5v-1.6a3.5 3.5 0 0 1 7 0v1.6M43.5 9.5h9v5h-9z" fill="none" stroke="var(--ink-3)" strokeWidth="1.3" strokeLinejoin="round" />
         </svg>
         <div className="flex w-32 flex-col items-center gap-2">
-          <Orb agentKey={thread.b} size={64} working={b?.working} />
+          <Orb agentKey={thread.b} size={64} working={b?.working} harness={b?.harness} />
           <span className="max-w-full truncate text-[12.5px] font-medium text-ink">{agentName(b)}</span>
           <StatePill state={thread.b_state} />
         </div>

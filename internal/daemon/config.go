@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hollerprotocol/holler/internal/harness"
 	"github.com/hollerprotocol/holler/internal/node"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 	Home         string      `json:"-"`
 	Name         string      `json:"name,omitempty"`
 	About        string      `json:"about,omitempty"`
+	Harness      string      `json:"harness,omitempty"` // claude, codex, ...: see internal/harness
 	Listen       []string    `json:"listen,omitempty"`
 	Advertise    string      `json:"advertise,omitempty"`
 	BlobLimit    int64       `json:"blob_limit,omitempty"`
@@ -81,6 +83,13 @@ func LoadConfig(home string) (Config, error) {
 	if v, ok := env("HOLLER_ABOUT"); ok {
 		cfg.About = v
 	}
+	if v, ok := env("HOLLER_HARNESS"); ok {
+		cfg.Harness = harness.Normalize(v)
+	}
+	if cfg.Harness == "" {
+		// Started by an agent: its harness marks the environment.
+		cfg.Harness = harness.Detect(os.Getenv)
+	}
 	if v, ok := env("HOLLER_LISTEN"); ok {
 		cfg.Listen = list(v)
 	}
@@ -131,6 +140,7 @@ func (c Config) nodeConfig() (node.Config, error) {
 		Home:      c.Home,
 		Name:      c.Name,
 		About:     c.About,
+		Harness:   c.Harness,
 		Listen:    c.Listen,
 		Advertise: c.Advertise,
 		BlobLimit: c.BlobLimit,

@@ -16,6 +16,7 @@ type Status struct {
 	Short       string     `json:"short"`
 	Name        string     `json:"name"`
 	About       string     `json:"about"`
+	Harness     string     `json:"harness,omitempty"` // the agent harness this daemon runs in
 	Fingerprint string     `json:"fingerprint"`
 	Version     string     `json:"version"`
 	Home        string     `json:"home"`

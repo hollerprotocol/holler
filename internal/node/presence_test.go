@@ -28,7 +28,7 @@ func presenceOf(t *testing.T, n *Node, origin string) *store.PresenceRow {
 // TestPresenceGossipChain: C shares its presence; B relays it without
 // sharing its own; A, two hops away, sees C through B.
 func TestPresenceGossipChain(t *testing.T) {
-	share := func(c *Config) { c.Presence = true }
+	share := func(c *Config) { c.Presence, c.Harness = true, "codex" }
 	a := testNode(t, "a")
 	b := testNode(t, "b")
 	c := testNode(t, "c", share)
@@ -57,6 +57,9 @@ func TestPresenceGossipChain(t *testing.T) {
 	}
 	if th == nil || th.Subject != "Run the suite" || th.Mine != wire.StateWorking || th.Peer != b.Key() {
 		t.Fatalf("thread in presence: %+v", p.Threads)
+	}
+	if p.Harness != "codex" {
+		t.Errorf("harness in presence: %q", p.Harness)
 	}
 	// The relay stored it too, and never published itself: b opted out.
 	if presenceOf(t, b, c.Key()) == nil {
