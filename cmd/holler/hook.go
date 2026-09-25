@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,6 +36,9 @@ func cmdHook(ctx context.Context, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	if m := modelFromHook(input); m != "" {
+		c.Call(ctx, "set_model", api.ModelParams{Model: m}, nil)
+	}
 
 	unread := func() []api.Event {
 		var res api.ReadResult
@@ -131,4 +135,61 @@ func readHookInput() map[string]any {
 	case <-time.After(time.Second):
 	}
 	return out
+}
+
+// modelFromHook finds the model the agent runs on in a hook's input: a
+// "model" field (a string, or an object with an id or name), or, for Claude
+// Code, whose hooks carry no model, the model of the latest reply in the
+// session transcript. That follows /model switches mid-session.
+func modelFromHook(input map[string]any) string {
+	switch v := input["model"].(type) {
+	case string:
+		return v
+	case map[string]any:
+		for _, k := range []string{"id", "name", "display_name"} {
+			if s, _ := v[k].(string); s != "" {
+				return s
+			}
+		}
+	}
+	if p, _ := input["transcript_path"].(string); p != "" {
+		return lastTranscriptModel(p)
+	}
+	return ""
+}
+
+// lastTranscriptModel reads the model of the last assistant message in a
+// Claude Code transcript (JSON lines), looking only at the file's tail.
+func lastTranscriptModel(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	off := max(0, fi.Size()-256<<10)
+	buf := make([]byte, fi.Size()-off)
+	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
+		return ""
+	}
+	lines := bytes.Split(buf, []byte{'\n'})
+	for i := len(lines) - 1; i >= 0; i-- {
+		if !bytes.Contains(lines[i], []byte(`"assistant"`)) {
+			continue
+		}
+		var e struct {
+			Type    string `json:"type"`
+			Message struct {
+				Model string `json:"model"`
+			} `json:"message"`
+		}
+		// Claude Code marks its own canned replies "<synthetic>".
+		if json.Unmarshal(lines[i], &e) == nil && e.Type == "assistant" && e.Message.Model != "" && !strings.HasPrefix(e.Message.Model, "<") {
+			return e.Message.Model
+		}
+	}
+	return ""
 }

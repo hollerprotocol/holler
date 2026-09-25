@@ -31,6 +31,11 @@ type Config struct {
 	Name  string
 	About string
 
+	// Model is the model the agent runs on (claude-opus-5-5, gpt-5.5, ...),
+	// shared in presence. The agent or its harness hooks report it, and it
+	// can change while the node runs (SetModel). Remembered like the name.
+	Model string
+
 	// Harness is the agent harness this node runs in (internal/harness),
 	// shared in presence. Remembered like the name.
 	Harness string
@@ -97,13 +102,14 @@ func (c *Config) setDefaults() {
 
 // Node is a running holler peer.
 type Node struct {
-	cfg  Config
-	priv ed25519.PrivateKey
-	pub  ed25519.PublicKey
-	key  string
-	st   *store.Store
-	ids  *wire.IDGen
-	tr   *transport.Transport
+	cfg   Config
+	model sync.Mutex // guards cfg.Model, which changes at run time
+	priv  ed25519.PrivateKey
+	pub   ed25519.PublicKey
+	key   string
+	st    *store.Store
+	ids   *wire.IDGen
+	tr    *transport.Transport
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -177,7 +183,7 @@ func Open(cfg Config) (*Node, error) {
 	for _, f := range []struct {
 		key string
 		v   *string
-	}{{"name", &n.cfg.Name}, {"about", &n.cfg.About}, {"harness", &n.cfg.Harness}} {
+	}{{"name", &n.cfg.Name}, {"about", &n.cfg.About}, {"harness", &n.cfg.Harness}, {"model", &n.cfg.Model}} {
 		if *f.v != "" {
 			st.SetKV(f.key, *f.v)
 		} else if v, ok, _ := st.GetKV(f.key); ok {
@@ -197,6 +203,34 @@ func (n *Node) Key() string { return n.key }
 
 // Name returns this peer's name.
 func (n *Node) Name() string { return n.cfg.Name }
+
+// Model returns the model the agent runs on, or "".
+func (n *Node) Model() string {
+	n.model.Lock()
+	defer n.model.Unlock()
+	return n.cfg.Model
+}
+
+// SetModel records the model the agent now runs on, remembers it, and
+// republishes presence if it changed. It reports whether it changed.
+func (n *Node) SetModel(m string) (bool, error) {
+	m = clipText(strings.TrimSpace(m), 100)
+	if m == "" {
+		return false, errors.New("empty model name")
+	}
+	n.model.Lock()
+	changed := n.cfg.Model != m
+	n.cfg.Model = m
+	n.model.Unlock()
+	if !changed {
+		return false, nil
+	}
+	if err := n.st.SetKV("model", m); err != nil {
+		return true, err
+	}
+	n.bump()
+	return true, nil
+}
 
 // Harness returns the agent harness this node runs in, or "".
 func (n *Node) Harness() string { return n.cfg.Harness }

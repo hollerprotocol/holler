@@ -17,6 +17,7 @@ type Status struct {
 	Name        string     `json:"name"`
 	About       string     `json:"about"`
 	Harness     string     `json:"harness,omitempty"` // the agent harness this daemon runs in
+	Model       string     `json:"model,omitempty"`   // the model the agent runs on, as last reported
 	Fingerprint string     `json:"fingerprint"`
 	Version     string     `json:"version"`
 	Home        string     `json:"home"`
@@ -219,4 +220,15 @@ type PeerParams struct {
 	Reason string `json:"reason,omitempty"`
 	Alias  string `json:"alias,omitempty"`
 	Hash   string `json:"hash,omitempty"`
+}
+
+// ModelParams for "set_model": the model the agent now runs on.
+type ModelParams struct {
+	Model string `json:"model"`
+}
+
+// ModelResult says whether the model changed.
+type ModelResult struct {
+	Model   string `json:"model"`
+	Changed bool   `json:"changed"`
 }

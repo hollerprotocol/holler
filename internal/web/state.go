@@ -36,6 +36,7 @@ type Agent struct {
 	About   string     `json:"about,omitempty"`
 	Version string     `json:"version,omitempty"`
 	Harness string     `json:"harness,omitempty"` // claude, codex, ...: declared, else guessed from the name
+	Model   string     `json:"model,omitempty"`   // the model it runs on, as it reports it
 	Status  string     `json:"status"`
 	Sharing bool       `json:"sharing"`
 	Direct  bool       `json:"direct"`
@@ -182,7 +183,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 	me := add(st.Key)
 	me.Status, me.Sharing, me.Version, me.Hops, me.Seen = statusSelf, st.Presence, st.Version, 0, seen(now)
 	me.About = cmp.Or(realAbout(net.Self.About), realAbout(st.About))
-	me.Harness = st.Harness
+	me.Harness, me.Model = st.Harness, st.Model
 
 	links := map[[2]string]*Link{}
 	link := func(x, y string, up bool) {
@@ -214,6 +215,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 		a := add(v.Origin)
 		a.Sharing, a.Version = true, v.Version
 		a.Harness = cmp.Or(harness.Normalize(v.Harness), a.Harness)
+		a.Model = cmp.Or(v.Model, a.Model)
 		a.About = cmp.Or(realAbout(v.About), a.About)
 		if a.Status != statusConnected {
 			if v.Status == api.AgentStale {

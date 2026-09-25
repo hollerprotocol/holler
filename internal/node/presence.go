@@ -40,6 +40,7 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 		About:   clipText(n.cfg.About, 200), // what it is doing; the hello default says nothing
 		Version: version.String(),
 		Harness: n.cfg.Harness,
+		Model:   n.Model(),
 		TS:      wire.Now(),
 	}
 	peers, err := n.st.Peers()

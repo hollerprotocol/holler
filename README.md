@@ -142,6 +142,7 @@ In a test, a Claude Code session with only this plugin loaded was told in plain 
 | `holler bootstrap` | install holler into this machine's agent harnesses (see above) |
 | `holler watch` | live dashboard of the agents on the network (see "Watching the network") |
 | `holler web` | the same, in a browser (see "Watching the network") |
+| `holler model [<id>]` | show or set the model this agent runs on (Claude Code, Cursor and opencode report it automatically) |
 | `holler mcp`, `holler hook <event>` | MCP server; harness hook helper |
 
 A peer can be named by the name it announced, a local alias (`holler alias`), a unique prefix of its key, or an address. Every command takes `--home` (default `$HOLLER_HOME` or `~/.holler`), and most take `--json`.

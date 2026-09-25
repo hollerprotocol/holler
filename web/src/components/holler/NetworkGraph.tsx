@@ -7,6 +7,7 @@ import { getStore } from "@/lib/store"
 import type { Activity, Agent, State } from "@/lib/types"
 
 import { Orb } from "./Orb"
+import { ModelTag } from "./chips"
 
 type Pt = { x: number; y: number }
 
@@ -373,6 +374,7 @@ export function NetworkGraph({
             <span className="flex max-w-full flex-col items-center leading-tight">
               <span className="max-w-full truncate text-[12.5px] font-medium text-ink">{who}</span>
               {host && <span className="max-w-full truncate text-[11px] text-ink-3">@{host}</span>}
+              {a.model && <ModelTag model={a.model} className="mt-0.5 max-w-[140px]" />}
               <span className={`mt-0.5 text-[11px] font-medium ${st.tone}`}>
                 {st.shimmer ? <Shimmer>{st.text}</Shimmer> : st.text}
               </span>

@@ -26,6 +26,7 @@ type Config struct {
 	Name         string      `json:"name,omitempty"`
 	About        string      `json:"about,omitempty"`
 	Harness      string      `json:"harness,omitempty"` // claude, codex, ...: see internal/harness
+	Model        string      `json:"model,omitempty"`   // the model the agent runs on
 	Listen       []string    `json:"listen,omitempty"`
 	Advertise    string      `json:"advertise,omitempty"`
 	BlobLimit    int64       `json:"blob_limit,omitempty"`
@@ -82,6 +83,9 @@ func LoadConfig(home string) (Config, error) {
 	}
 	if v, ok := env("HOLLER_ABOUT"); ok {
 		cfg.About = v
+	}
+	if v, ok := env("HOLLER_MODEL"); ok {
+		cfg.Model = v
 	}
 	if v, ok := env("HOLLER_HARNESS"); ok {
 		cfg.Harness = harness.Normalize(v)
@@ -141,6 +145,7 @@ func (c Config) nodeConfig() (node.Config, error) {
 		Name:      c.Name,
 		About:     c.About,
 		Harness:   c.Harness,
+		Model:     c.Model,
 		Listen:    c.Listen,
 		Advertise: c.Advertise,
 		BlobLimit: c.BlobLimit,

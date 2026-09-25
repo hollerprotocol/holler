@@ -873,3 +873,39 @@ func setHarnessEnv(v string) error {
 	}
 	return os.Setenv("HOLLER_HARNESS", id)
 }
+
+func cmdModel(ctx context.Context, args []string) error {
+	f := newFlags("model", "[<model>]", "Show or set the model this agent runs on, which it shares with the network\n(holler watch and holler web show it). It takes effect at once, so run it\nagain after switching models. Claude Code, Cursor and opencode report the\nmodel through holler's hooks and plugin, so they rarely need this.")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	// Harness plugins call this on every turn: it must never start holler.
+	c := f.client()
+	if !c.Running() {
+		return errors.New("holler is not running (holler up starts it)")
+	}
+	if f.NArg() == 0 {
+		var st api.Status
+		if err := c.Call(ctx, "status", nil, &st); err != nil {
+			return err
+		}
+		if *f.json {
+			return printJSON(map[string]string{"model": st.Model})
+		}
+		if st.Model == "" {
+			fmt.Println("no model reported yet (holler model <id> sets it)")
+			return nil
+		}
+		fmt.Println(st.Model)
+		return nil
+	}
+	var res api.ModelResult
+	if err := c.Call(ctx, "set_model", api.ModelParams{Model: strings.Join(f.Args(), " ")}, &res); err != nil {
+		return err
+	}
+	if *f.json {
+		return printJSON(res)
+	}
+	fmt.Printf("model: %s\n", res.Model)
+	return nil
+}

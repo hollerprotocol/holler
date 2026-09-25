@@ -28,7 +28,7 @@ func presenceOf(t *testing.T, n *Node, origin string) *store.PresenceRow {
 // TestPresenceGossipChain: C shares its presence; B relays it without
 // sharing its own; A, two hops away, sees C through B.
 func TestPresenceGossipChain(t *testing.T) {
-	share := func(c *Config) { c.Presence, c.Harness = true, "codex" }
+	share := func(c *Config) { c.Presence, c.Harness, c.Model = true, "codex", "gpt-5.5" }
 	a := testNode(t, "a")
 	b := testNode(t, "b")
 	c := testNode(t, "c", share)
@@ -58,9 +58,21 @@ func TestPresenceGossipChain(t *testing.T) {
 	if th == nil || th.Subject != "Run the suite" || th.Mine != wire.StateWorking || th.Peer != b.Key() {
 		t.Fatalf("thread in presence: %+v", p.Threads)
 	}
-	if p.Harness != "codex" {
-		t.Errorf("harness in presence: %q", p.Harness)
+	if p.Harness != "codex" || p.Model != "gpt-5.5" {
+		t.Errorf("harness and model in presence: %q %q", p.Harness, p.Model)
 	}
+	// A new model reaches the network without a restart.
+	if changed, err := c.SetModel("gpt-5.5-mini"); !changed || err != nil {
+		t.Fatalf("SetModel: %v %v", changed, err)
+	}
+	if changed, _ := c.SetModel("gpt-5.5-mini"); changed {
+		t.Error("SetModel reported a change for the same model")
+	}
+	waitFor(t, a, "the new model at a", func() bool {
+		row := presenceOf(t, a, c.Key())
+		p, err := wire.ParsePresence(row.Doc)
+		return err == nil && p.Model == "gpt-5.5-mini"
+	})
 	// The relay stored it too, and never published itself: b opted out.
 	if presenceOf(t, b, c.Key()) == nil {
 		t.Fatal("relay did not store c's presence")

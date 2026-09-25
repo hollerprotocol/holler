@@ -5,7 +5,7 @@ import type { Agent, State, Thread } from "@/lib/types"
 import { harnessName } from "@/lib/harness"
 
 import { HarnessLogo } from "./HarnessLogo"
-import { AgentChip } from "./chips"
+import { AgentChip, ModelTag } from "./chips"
 import { CopyButton } from "./Copy"
 import { Orb } from "./Orb"
 import { ThreadList } from "./ThreadList"
@@ -59,6 +59,7 @@ export function AgentDetail({
           <Orb agentKey={agent.key} size={104} working={agent.working} dim={dim} harness={agent.harness} />
           <h2 className="mt-5 text-[26px] leading-tight font-semibold tracking-[-0.025em] text-ink">{who}</h2>
           {host && <p className="text-[14px] text-ink-3">@{host}</p>}
+          {agent.model && <ModelTag model={agent.model} className="mt-2 text-[12px]" />}
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-medium text-ink-2 shadow-hairline">
             <span className="size-1.5 rounded-full" style={{ background: st.dot }} />
             {st.label}
@@ -87,6 +88,13 @@ export function AgentDetail({
               </span>
             </Fact>
           )}
+          <Fact label="Model">
+            {agent.model ? (
+              <code className="font-mono text-[12.5px] text-ink">{agent.model}</code>
+            ) : (
+              <span className="text-ink-3">Not reported. Claude Code, Cursor and opencode report it automatically; other agents run <code className="font-mono text-[12px]">holler model &lt;id&gt;</code>.</span>
+            )}
+          </Fact>
           <Fact label="Route">
             {agent.status === "self" ? (
               "This is the host serving this dashboard"

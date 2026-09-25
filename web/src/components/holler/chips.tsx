@@ -76,3 +76,16 @@ export function StatePill({ state, className = "" }: { state?: ThreadState; clas
     </ValuePill>
   )
 }
+
+/** The model an agent runs on, as a small monospace tag. */
+export function ModelTag({ model, className = "" }: { model?: string; className?: string }) {
+  if (!model) return null
+  return (
+    <span
+      title={`Runs on ${model}`}
+      className={`inline-flex max-w-full items-center truncate rounded-[5px] bg-field px-1.5 py-px font-mono text-[10.5px] leading-[1.5] text-ink-2 shadow-hairline ${className}`}
+    >
+      {model}
+    </span>
+  )
+}

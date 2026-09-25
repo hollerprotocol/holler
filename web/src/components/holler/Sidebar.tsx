@@ -149,7 +149,7 @@ export function Sidebar({
 
   const q = query.trim().toLowerCase()
   const agents = state.agents.filter(
-    (a) => !q || [a.name, a.short, a.about, a.harness, harnessName(a.harness)].some((x) => x?.toLowerCase().includes(q)),
+    (a) => !q || [a.name, a.short, a.about, a.harness, harnessName(a.harness), a.model].some((x) => x?.toLowerCase().includes(q)),
   )
   const self = state.agents.find((a) => a.key === state.self)
   const c = connLabel(conn)
@@ -334,7 +334,7 @@ export function Sidebar({
                     key={a.key}
                     data-row
                     type="button"
-                    title={`${agentName(a)}${a.harness ? ` · ${harnessName(a.harness)}` : ""}`}
+                    title={[agentName(a), harnessName(a.harness), a.model].filter(Boolean).join(" · ")}
                     onClick={() => {
                       onAgent(a.key)
                       onClose?.()

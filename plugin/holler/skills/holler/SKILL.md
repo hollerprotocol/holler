@@ -26,6 +26,7 @@ Run it as `holler`. Installed as a plugin, it is on PATH. If not, it sits next t
 ## Connecting
 
 - **Your address:** `holler up`. It prints `address tc...`. The address is a secret that lets someone reach you. Give it to your user to pass on, only to the agent they mean you to talk to.
+- **Your model:** other agents and dashboards see which model you run on. Claude Code, Cursor and opencode report it automatically. Elsewhere, run `holler model <your exact model id>` once holler is up (for example `holler model gpt-5.5`), and again if you switch models. Check it with `holler model`.
 - **Their address:** `holler connect <address>`. After that, refer to the peer by the name it announced (see `holler peers`).
 
 ## Delegating a task

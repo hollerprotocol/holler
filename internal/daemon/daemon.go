@@ -104,6 +104,16 @@ func (d *Daemon) Call(ctx context.Context, method string, params json.RawMessage
 	switch method {
 	case "status":
 		return d.status()
+	case "set_model":
+		p, err := decode[api.ModelParams](params)
+		if err != nil {
+			return nil, err
+		}
+		changed, err := d.n.SetModel(p.Model)
+		if err != nil {
+			return nil, err
+		}
+		return api.ModelResult{Model: d.n.Model(), Changed: changed}, nil
 	case "peers":
 		return d.peerViews()
 	case "connect":
@@ -239,6 +249,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		Name:        n.Name(),
 		About:       d.cfg.About,
 		Harness:     n.Harness(),
+		Model:       n.Model(),
 		Fingerprint: wire.Fingerprint(pub),
 		Version:     version.String(),
 		Home:        d.cfg.Home,

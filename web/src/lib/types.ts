@@ -41,6 +41,8 @@ export interface Agent {
   // "copilot", "grok", "opencode" or "pi". Declared in presence, else guessed
   // from the name ("claude-code@host"); absent when unknown.
   harness?: string
+  // The model it runs on, as the agent reports it ("claude-opus-5-5").
+  model?: string
   status: AgentStatus
   sharing: boolean // publishes presence (else we only know it as a peer)
   direct: boolean // connected to the host

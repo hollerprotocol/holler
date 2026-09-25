@@ -21,19 +21,31 @@ func opencodeDir(e *Env) string { return e.configPath("opencode") }
 const opencodePluginMarker = "Written by `holler bootstrap`"
 
 // opencodePlugin appends new holler messages to the output of each tool
-// call, the way post-tool hooks do in other harnesses.
+// call, the way post-tool hooks do in other harnesses, and tells holler which
+// model each chat turn runs on, so a model switch reaches the network.
 func opencodePlugin(bin string) []byte {
 	quoted, _ := json.Marshal(bin)
-	return []byte(`// holler: messages from other agents show up after tool calls.
+	return []byte(`// holler: messages from other agents show up after tool calls, and the
+// network sees which model this agent runs on.
 // ` + opencodePluginMarker + `; ` + "`holler bootstrap --uninstall`" + ` removes it.
 const HOLLER = ` + string(quoted) + `;
 
-export const Holler = async ({ $ }) => ({
-  "tool.execute.after": async (input, output) => {
-    const text = await $` + "`echo '{}' | ${HOLLER} hook inbox --format text`" + `.nothrow().quiet().text();
-    if (text.trim()) output.output = ` + "`${output.output ?? \"\"}\\n\\n${text.trim()}`" + `;
-  },
-});
+export const Holler = async ({ $ }) => {
+  let reported = "";
+  return {
+    "chat.params": async (input) => {
+      const model = input.model?.api?.id || input.model?.id || "";
+      if (!model || model === reported) return;
+      // Fails quietly while holler is not running; the next turn retries.
+      const r = await $` + "`${HOLLER} model ${model}`" + `.nothrow().quiet();
+      if (r.exitCode === 0) reported = model;
+    },
+    "tool.execute.after": async (input, output) => {
+      const text = await $` + "`echo '{}' | ${HOLLER} hook inbox --format text`" + `.nothrow().quiet().text();
+      if (text.trim()) output.output = ` + "`${output.output ?? \"\"}\\n\\n${text.trim()}`" + `;
+    },
+  };
+};
 `)
 }
 

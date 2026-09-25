@@ -4,6 +4,7 @@ import { agentName, ago, splitName } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent } from "@/lib/types"
 
+import { ModelTag } from "./chips"
 import { Orb } from "./Orb"
 
 const DOT: Record<Agent["status"], string> = {
@@ -37,6 +38,7 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
               <span className="flex items-baseline gap-1.5">
                 <span className="truncate text-[13.5px] font-medium text-ink">{who}</span>
                 {host && <span className="truncate text-[12px] text-ink-3">@{host}</span>}
+                {a.model && <ModelTag model={a.model} className="ml-0.5 min-w-0 shrink" />}
               </span>
               <span className="block truncate text-[12px] text-ink-3">
                 {a.status === "self" ? "this host" : a.about || (a.direct ? "connected to this host" : "via gossip")}

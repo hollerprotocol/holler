@@ -34,7 +34,7 @@ export function Palette({
     const s = q.trim().toLowerCase()
     const hit = (...xs: (string | undefined)[]) => !s || xs.some((x) => x?.toLowerCase().includes(s))
     return [
-      ...state.agents.filter((a) => hit(a.name, a.about, a.short, a.key, a.harness, harnessName(a.harness))).map((agent) => ({ kind: "agent" as const, agent })),
+      ...state.agents.filter((a) => hit(a.name, a.about, a.short, a.key, a.harness, harnessName(a.harness), a.model)).map((agent) => ({ kind: "agent" as const, agent })),
       ...state.threads
         .filter((t) => hit(t.subject, t.th, agents.get(t.a)?.name, agents.get(t.b)?.name, t.a_state, t.b_state))
         .map((thread) => ({ kind: "thread" as const, thread })),

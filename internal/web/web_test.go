@@ -54,7 +54,7 @@ func network(now time.Time, bossState string) (*api.Status, []*store.Thread, *ap
 					{Th: "thr_build", Peer: builderKey, Subject: "Build it", Mine: wire.StateWaiting, Theirs: wire.StateWorking, Updated: ts},
 				}},
 				Status: api.AgentFresh, Direct: true, Via: workerKey},
-			{Presence: wire.Presence{Origin: bossKey, Name: "claude-code@boss", Harness: "codex", TS: ts,
+			{Presence: wire.Presence{Origin: bossKey, Name: "claude-code@boss", Harness: "codex", Model: "gpt-5.5", TS: ts,
 				Peers:   []wire.PresencePeer{{Key: workerKey, Up: true}},
 				Threads: []wire.PresenceThread{{Th: "thr_fix", Peer: workerKey, Subject: "Fix calc", Mine: bossState, Theirs: wire.StateOpen, Updated: later}}},
 				Status: api.AgentFresh, Via: workerKey, Hops: 1},
@@ -93,6 +93,9 @@ func TestBuildStateIsNetworkWide(t *testing.T) {
 		if a := s.agent(key); a.Harness != want {
 			t.Errorf("%s harness %q, want %q", a.Name, a.Harness, want)
 		}
+	}
+	if a := s.agent(bossKey); a.Model != "gpt-5.5" {
+		t.Errorf("boss model %q", a.Model)
 	}
 	if a := s.agent(builderKey); a.Sharing || a.Via != workerKey || a.Hops != 2 {
 		t.Errorf("builder = %+v", a)
