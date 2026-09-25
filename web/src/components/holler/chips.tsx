@@ -1,0 +1,68 @@
+import { EntityChip } from "@/components/atoms/EntityChip"
+import { ValuePill } from "@/components/atoms/ValuePill"
+import { agentName, splitName, stateTone } from "@/lib/format"
+import type { Agent, ThreadState } from "@/lib/types"
+
+import { orbBackground } from "@/lib/orb"
+
+/** An agent inline: its orb as the monogram, then its name. */
+export function AgentChip({
+  agentKey,
+  agent,
+  className = "",
+  onClick,
+}: {
+  agentKey: string
+  agent?: Agent
+  className?: string
+  onClick?: () => void
+}) {
+  const name = agentName(agent, agentKey.slice(8, 18))
+  const { who } = splitName(name)
+  const chip = (
+    <EntityChip
+      name={name}
+      color={orbBackground(agentKey)}
+      monogram={<span className="text-[8.5px] font-semibold text-white/90 [text-shadow:0_0_2px_oklch(0_0_0/0.35)]">{who.charAt(0).toUpperCase()}</span>}
+      className={`mx-0 max-w-full [&>span:last-child]:truncate ${className}`}
+    />
+  )
+  if (!onClick) return chip
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className="inline-flex max-w-full min-w-0 rounded-full transition-[filter] hover:brightness-[0.97] dark:hover:brightness-110"
+    >
+      {chip}
+    </button>
+  )
+}
+
+const DOT: Record<string, string> = {
+  accent: "var(--accent)",
+  orange: "var(--orange)",
+  green: "var(--green)",
+  red: "var(--red)",
+  neutral: "var(--ink-3)",
+}
+
+/** A thread state as a pill with a status dot. Working pulses. */
+export function StatePill({ state, className = "" }: { state?: ThreadState; className?: string }) {
+  if (!state) return null
+  const tone = stateTone(state)
+  return (
+    <ValuePill tone={tone} className={`mx-0 gap-1 ${className}`}>
+      <span className="relative flex size-1.5">
+        {state === "working" && (
+          <span className="absolute inset-0 rounded-full" style={{ background: DOT[tone], animation: "orb-ping 1.4s ease-out infinite" }} />
+        )}
+        <span className="relative size-1.5 rounded-full" style={{ background: DOT[tone] }} />
+      </span>
+      {state}
+    </ValuePill>
+  )
+}

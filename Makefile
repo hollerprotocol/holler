@@ -3,10 +3,18 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 LDFLAGS   := -s -w
 PLUGIN    := plugin/holler
 
-.PHONY: build test test-go test-python interop dist plugin plugin-local clean
+.PHONY: build web test test-go test-python interop dist plugin plugin-local clean
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/holler ./cmd/holler
+
+# The web dashboard (holler web): built from web/ with bun, then embedded in
+# the binary from internal/web/dist. Without it, holler web serves the API
+# only.
+web:
+	cd web && bun install --frozen-lockfile && bun run build
+	find internal/web/dist -mindepth 1 ! -name README -exec rm -rf {} +
+	cp -R web/dist/. internal/web/dist/
 
 test: test-go test-python interop
 
@@ -41,4 +49,5 @@ plugin-local:
 		-o $(PLUGIN)/libexec/holler-$$(go env GOOS)-$$(go env GOARCH) ./cmd/holler
 
 clean:
-	rm -rf bin dist $(PLUGIN)/libexec/holler-*
+	rm -rf bin dist web/dist $(PLUGIN)/libexec/holler-*
+	find internal/web/dist -mindepth 1 ! -name README -exec rm -rf {} +

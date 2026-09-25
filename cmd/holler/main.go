@@ -60,6 +60,7 @@ func init() {
 		{"mcp", "", "run the MCP server (stdio) for harnesses that prefer tools", cmdMCP},
 		{"hook", "<event>", "harness hook helper (session-start, inbox, stop)", cmdHook},
 		{"watch", "", "live dashboard of the agents on the network (alias: top)", cmdWatch},
+		{"web", "", "the dashboard in a browser: the whole network, live", cmdWeb},
 		{"version", "", "print the version", cmdVersion},
 	}
 }

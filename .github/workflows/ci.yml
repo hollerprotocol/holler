@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: "3.13"
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build the web dashboard
+        run: make web
+
       - name: Install Python dependencies
         run: python -m pip install cryptography
 
@@ -33,6 +38,10 @@ jobs:
           if [ -n "$unformatted" ]; then
             echo "not gofmt'ed:"; echo "$unformatted"; exit 1
           fi
+
+      - name: Web dashboard checks
+        working-directory: web
+        run: bun run typecheck && bun run lint
 
       - name: go vet
         run: go vet ./...

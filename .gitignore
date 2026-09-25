@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 /holler
 /.claude/
+/internal/web/dist/*
+!/internal/web/dist/README

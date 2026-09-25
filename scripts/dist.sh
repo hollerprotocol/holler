@@ -12,6 +12,11 @@ dist=$root/dist
 platforms=${PLATFORMS:-linux/amd64 linux/arm64 darwin/amd64 darwin/arm64}
 ldflags="-s -w -X github.com/hollerprotocol/holler/internal/version.Version=$version"
 
+if [ ! -f "$root/internal/web/dist/index.html" ]; then
+  echo "the web dashboard is not built (make web); refusing to release without it" >&2
+  exit 1
+fi
+
 rm -rf "$dist"
 stage=$dist/stage
 mkdir -p "$stage"

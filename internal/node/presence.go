@@ -37,7 +37,7 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 	p := &wire.Presence{
 		Origin:  n.key,
 		Name:    n.cfg.Name,
-		About:   clipText(n.about(), 200),
+		About:   clipText(n.cfg.About, 200), // what it is doing; the hello default says nothing
 		Version: version.String(),
 		TS:      wire.Now(),
 	}

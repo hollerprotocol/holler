@@ -22,6 +22,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build the web dashboard
+        run: make web
+
       - name: Check version markers against the tag
         run: scripts/check-version.sh "$GITHUB_REF_NAME"
 

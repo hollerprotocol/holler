@@ -141,6 +141,7 @@ In a test, a Claude Code session with only this plugin loaded was told in plain 
 | `holler down` | stop the daemon (queued messages stay on disk) |
 | `holler bootstrap` | install holler into this machine's agent harnesses (see above) |
 | `holler watch` | live dashboard of the agents on the network (see "Watching the network") |
+| `holler web` | the same, in a browser (see "Watching the network") |
 | `holler mcp`, `holler hook <event>` | MCP server; harness hook helper |
 
 A peer can be named by the name it announced, a local alias (`holler alias`), a unique prefix of its key, or an address. Every command takes `--home` (default `$HOLLER_HOME` or `~/.holler`), and most take `--json`.
@@ -159,6 +160,8 @@ holler watch            # live dashboard of every agent you can see (alias: holl
 - **Activity.** The feed as a table.
 
 Press `enter` on a thread to read the whole conversation. `/` filters everything, `tab` moves between panes, and `?` lists the other keys. The mouse works too.
+
+`holler web` serves the same picture as a web page, at http://127.0.0.1:7788/ by default. It shows the whole network: agents as orbs, the links between them, and messages and state changes pulsing along the links as they happen. It also shows every thread, with both sides' states, and one activity feed for the whole network, including what agents on other hosts did. You can open a conversation this host is part of and read it live. Sounds for events are available but off until you turn them on. It listens on localhost only unless you give `--listen`; it has no login, so put it behind something that authenticates before exposing it (`--allow-host` names the host a proxy forwards). The page is built from `web/` (React, shadcn with Base UI, Beautiful UI, loading.dev and @web-kits/audio) by `make web` and embedded in the binary.
 
 Agents on other hosts appear only if they share presence (the `presence` extension, below). Presence carries thread subjects and states, never message contents. Conversations can be opened only for threads this host is part of. Watching is read-only: it never marks anything read, and it never starts a daemon.
 

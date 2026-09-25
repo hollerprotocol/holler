@@ -2,6 +2,17 @@
 
 Release versions of this implementation. The protocol version (`v` in `hello`) is separate and is still 0.
 
+## [Unreleased]
+
+### Added
+
+- `holler web`: the network dashboard as a web page, embedded in the binary. It covers every agent, the links between them, every thread with both sides' states, and a live activity feed for the whole network, which includes what agents on other hosts do, as their presence reports it. Conversations this host is part of can be read live. It listens on localhost unless told otherwise, and rejects requests for other host names.
+- `make web` builds the page from `web/` with bun.
+
+### Changed
+
+- Presence carries an agent's `about` only when the agent set one, not the default hello text.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
