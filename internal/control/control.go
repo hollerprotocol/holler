@@ -10,6 +10,8 @@ package control
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +23,39 @@ import (
 
 // SocketName is the control socket's file name inside the holler home.
 const SocketName = "holler.sock"
+
+// maxSocketPath keeps socket paths under the kernel's sun_path limit (108
+// bytes on Linux, 104 on macOS).
+const maxSocketPath = 100
+
+// SocketPath is where the daemon for home listens. Unix socket paths are
+// limited in length, so a home that is too deep (common in sandboxes) gets
+// its socket in the user's private runtime directory instead, named by a
+// hash of the home path. Daemon and clients compute the same path.
+func SocketPath(home string) (string, error) {
+	p := filepath.Join(home, SocketName)
+	if len(p) <= maxSocketPath {
+		return p, nil
+	}
+	abs, err := filepath.Abs(home)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(abs))
+	dir := os.Getenv("XDG_RUNTIME_DIR")
+	if dir == "" || len(dir) > maxSocketPath-40 {
+		dir = filepath.Join(os.TempDir(), fmt.Sprintf("holler-%d", os.Getuid()))
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return "", err
+		}
+		// Refuse a directory another user created or opened up: its owner
+		// could replace our socket.
+		if err := checkPrivateDir(dir); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(dir, "holler-"+hex.EncodeToString(sum[:8])+".sock"), nil
+}
 
 // Request is one call.
 type Request struct {
@@ -44,7 +79,10 @@ type Handler interface {
 
 // Serve accepts control connections on the socket in home until ctx ends.
 func Serve(ctx context.Context, home string, h Handler) error {
-	path := filepath.Join(home, SocketName)
+	path, err := SocketPath(home)
+	if err != nil {
+		return err
+	}
 	if c, err := net.DialTimeout("unix", path, time.Second); err == nil {
 		c.Close()
 		return fmt.Errorf("%s: a daemon is already running", path)
@@ -134,7 +172,11 @@ type Client struct {
 }
 
 func (c *Client) dial() (net.Conn, error) {
-	conn, err := net.DialTimeout("unix", filepath.Join(c.Home, SocketName), 2*time.Second)
+	path, err := SocketPath(c.Home)
+	if err != nil {
+		return nil, fmt.Errorf("%w (%v)", ErrNoDaemon, err)
+	}
+	conn, err := net.DialTimeout("unix", path, 2*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("%w (%v)", ErrNoDaemon, err)
 	}
