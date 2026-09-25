@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { Shimmer } from "@/components/atoms/Shimmer"
 import { agentName, splitName } from "@/lib/format"
-import { orbColors } from "@/lib/orb"
+import { agentColor } from "@/lib/avatar"
 import { getStore } from "@/lib/store"
 import type { Activity, Agent, State } from "@/lib/types"
 
@@ -245,7 +245,7 @@ export function NetworkGraph({
         return
       }
       const color =
-        PULSE_COLOR[a.kind] ?? (a.kind === "state" ? orbColors(a.from).solid : "var(--accent)")
+        PULSE_COLOR[a.kind] ?? (a.kind === "state" ? agentColor(a.from) : "var(--accent)")
       const dist = Math.hypot(to.x - from.x, to.y - from.y)
       const dur = Math.min(1400, 450 + dist * 1.6)
       const pulse = { id: ++id, path: curve(from, to), color, dur }
@@ -354,7 +354,7 @@ export function NetworkGraph({
                   key={pings[a.key]}
                   className="absolute inset-0 rounded-full"
                   style={{
-                    boxShadow: `0 0 0 2px ${orbColors(a.key).solid}`,
+                    boxShadow: `0 0 0 2px ${agentColor(a.key)}`,
                     animation: "orb-ping 900ms var(--ease-out-strong) both",
                   }}
                 />

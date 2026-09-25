@@ -1,9 +1,11 @@
 import { EntityChip } from "@/components/atoms/EntityChip"
 import { ValuePill } from "@/components/atoms/ValuePill"
-import { agentName, splitName, stateTone } from "@/lib/format"
+import { agentName, stateTone } from "@/lib/format"
 import type { Agent, ThreadState } from "@/lib/types"
 
-import { orbBackground } from "@/lib/orb"
+import Avatar from "boring-avatars"
+
+import { PALETTE } from "@/lib/avatar"
 
 import { HarnessLogo } from "./HarnessLogo"
 
@@ -20,18 +22,16 @@ export function AgentChip({
   onClick?: () => void
 }) {
   const name = agentName(agent, agentKey.slice(8, 18))
-  const { who } = splitName(name)
-  // Known harnesses show their logo on a plain disc; others the orb's colour
-  // and an initial.
+  // Known harnesses show their logo on a plain disc; others a tiny marble.
   const chip = (
     <EntityChip
       name={name}
-      color={agent?.harness ? "var(--card)" : orbBackground(agentKey)}
+      color={agent?.harness ? "var(--card)" : "transparent"}
       monogram={
         agent?.harness ? (
           <HarnessLogo harness={agent.harness} size={11} />
         ) : (
-          <span className="text-[8.5px] font-semibold text-white/90 [text-shadow:0_0_2px_oklch(0_0_0/0.35)]">{who.charAt(0).toUpperCase()}</span>
+          <Avatar name={agentKey} variant="marble" colors={PALETTE} size={16} />
         )
       }
       className={`mx-0 max-w-full [&>span:last-child]:truncate ${className}`}

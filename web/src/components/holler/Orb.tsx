@@ -1,11 +1,12 @@
 import type { CSSProperties } from "react"
+import Avatar from "boring-avatars"
 
-import { orbColors } from "@/lib/orb"
+import { PALETTE } from "@/lib/avatar"
 
 import { HarnessBadge } from "./HarnessLogo"
 
-/** An agent's gradient orb. Working agents breathe and swirl faster; quiet
- *  ones fade to grey. With a harness, its logo sits on the orb's edge. */
+/** An agent's avatar: a marble from its key. Working agents breathe; quiet
+ *  ones fade to grey. With a harness, its logo sits on the avatar's edge. */
 export function Orb({
   agentKey,
   size = 32,
@@ -23,28 +24,20 @@ export function Orb({
   className?: string
   style?: CSSProperties
 }) {
-  const c = orbColors(agentKey)
-  const orb = (
+  const avatar = (
     <span
       aria-hidden
-      className={`orb inline-block shrink-0 ${working ? "is-working" : ""} ${dim ? "is-dim" : ""} ${className}`}
-      style={
-        {
-          width: size,
-          height: size,
-          "--o1": c.o1,
-          "--o2": c.o2,
-          "--o3": c.o3,
-          ...style,
-        } as CSSProperties
-      }
-    />
+      className={`agent-avatar inline-flex shrink-0 ${working ? "is-working" : ""} ${dim ? "is-dim" : ""} ${className}`}
+      style={{ width: size, height: size, ...style }}
+    >
+      <Avatar name={agentKey} variant="marble" colors={PALETTE} size={size} />
+    </span>
   )
-  if (!harness) return orb
+  if (!harness) return avatar
   const badge = Math.max(13, Math.round(size * 0.46))
   return (
     <span className="relative inline-flex shrink-0">
-      {orb}
+      {avatar}
       <HarnessBadge harness={harness} size={badge} className="absolute" style={{ right: -badge * 0.12, bottom: -badge * 0.12 }} />
     </span>
   )
