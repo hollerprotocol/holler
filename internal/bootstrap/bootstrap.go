@@ -35,19 +35,25 @@ import (
 
 // Env is everything bootstrap touches, so that tests can fake it.
 type Env struct {
-	Home     string                                                    // the user's home directory
-	Bin      string                                                    // absolute path of the holler binary to wire in
-	LookPath func(file string) (string, error)                         // finds harness executables
-	Run      func(ctx context.Context, argv ...string) (string, error) // runs harness CLIs
-	DryRun   bool
+	Home       string                                                    // the user's home directory
+	ConfigHome string                                                    // $XDG_CONFIG_HOME; empty means Home/.config
+	Bin        string                                                    // absolute path of the holler binary to wire in
+	LookPath   func(file string) (string, error)                         // finds harness executables
+	Run        func(ctx context.Context, argv ...string) (string, error) // runs harness CLIs
+	DryRun     bool
 }
 
 // NewEnv returns the real environment for home, wiring in bin.
 func NewEnv(home, bin string) *Env {
+	configHome := os.Getenv("XDG_CONFIG_HOME")
+	if !filepath.IsAbs(configHome) {
+		configHome = ""
+	}
 	return &Env{
-		Home:     home,
-		Bin:      bin,
-		LookPath: exec.LookPath,
+		Home:       home,
+		ConfigHome: configHome,
+		Bin:        bin,
+		LookPath:   exec.LookPath,
 		Run: func(ctx context.Context, argv ...string) (string, error) {
 			ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
@@ -67,6 +73,15 @@ func (e *Env) path(rel ...string) string {
 	return filepath.Join(append([]string{e.Home}, rel...)...)
 }
 
+// configPath is a path under the XDG config directory.
+func (e *Env) configPath(rel ...string) string {
+	base := e.ConfigHome
+	if base == "" {
+		base = e.path(".config")
+	}
+	return filepath.Join(append([]string{base}, rel...)...)
+}
+
 // display shortens a path under Home to ~/...
 func (e *Env) display(p string) string {
 	if rel, err := filepath.Rel(e.Home, p); err == nil && !strings.HasPrefix(rel, "..") {
@@ -83,6 +98,10 @@ type Harness struct {
 	Dir  string   // config directory, relative to Home
 	Gets string   // what bootstrap installs, for display
 
+	MCP   bool // gets the MCP server
+	Hooks bool // gets hooks (or a plugin doing their job)
+
+	dirOf     func(*Env) string // config directory, when it is not Home/Dir
 	install   func(context.Context, *Env) ([]string, error)
 	uninstall func(context.Context, *Env) ([]string, error)
 	status    func(*Env) Status
@@ -110,13 +129,24 @@ type Found struct {
 var Harnesses = []*Harness{
 	{
 		ID: "claude", Name: "Claude Code", Bins: []string{"claude"}, Dir: ".claude",
+		MCP: true, Hooks: true,
 		Gets:      "plugin: skill, MCP server, hooks",
 		install:   installClaude,
 		uninstall: uninstallClaude,
 		status:    statusClaude,
 	},
 	{
+		ID: "opencode", Name: "opencode", Bins: []string{"opencode"}, Dir: ".config/opencode",
+		MCP: true, Hooks: true,
+		Gets:      "skill, MCP server, plugin",
+		dirOf:     opencodeDir,
+		install:   installOpencode,
+		uninstall: uninstallOpencode,
+		status:    statusOpencode,
+	},
+	{
 		ID: "codex", Name: "Codex", Bins: []string{"codex"}, Dir: ".codex",
+		MCP: true, Hooks: false,
 		Gets:      "skill, MCP server",
 		install:   cliMCP(".codex/skills", []string{"codex", "mcp", "remove", "holler"}, func(bin string) []string { return []string{"codex", "mcp", "add", "holler", "--", bin, "mcp"} }),
 		uninstall: cliUninstall(".codex/skills", []string{"codex", "mcp", "remove", "holler"}),
@@ -124,6 +154,7 @@ var Harnesses = []*Harness{
 	},
 	{
 		ID: "cursor", Name: "Cursor", Bins: []string{"cursor-agent", "cursor"}, Dir: ".cursor",
+		MCP: true, Hooks: true,
 		Gets:      "skill, MCP server, hooks",
 		install:   installCursor,
 		uninstall: uninstallCursor,
@@ -131,6 +162,7 @@ var Harnesses = []*Harness{
 	},
 	{
 		ID: "gemini", Name: "Gemini CLI", Bins: []string{"gemini"}, Dir: ".gemini",
+		MCP: true, Hooks: true,
 		Gets:      "skill, MCP server, hooks",
 		install:   installGemini,
 		uninstall: uninstallGemini,
@@ -138,6 +170,7 @@ var Harnesses = []*Harness{
 	},
 	{
 		ID: "copilot", Name: "GitHub Copilot CLI", Bins: []string{"copilot"}, Dir: ".copilot",
+		MCP: true, Hooks: false,
 		Gets:      "skill, MCP server",
 		install:   cliMCP(".copilot/skills", []string{"copilot", "mcp", "remove", "holler"}, func(bin string) []string { return []string{"copilot", "mcp", "add", "holler", "--", bin, "mcp"} }),
 		uninstall: cliUninstall(".copilot/skills", []string{"copilot", "mcp", "remove", "holler"}),
@@ -145,6 +178,7 @@ var Harnesses = []*Harness{
 	},
 	{
 		ID: "grok", Name: "grok", Bins: []string{"grok"}, Dir: ".grok",
+		MCP: true, Hooks: false,
 		Gets: "skill, MCP server",
 		install: cliMCP(".grok/skills", []string{"grok", "mcp", "remove", "holler"}, func(bin string) []string {
 			return []string{"grok", "mcp", "add", "-s", "user", "holler", bin, "--", "mcp"}
@@ -154,6 +188,7 @@ var Harnesses = []*Harness{
 	},
 	{
 		ID: "pi", Name: "pi", Bins: []string{"pi"}, Dir: ".pi",
+		MCP: false, Hooks: false,
 		Gets: "skill",
 		install: func(ctx context.Context, e *Env) ([]string, error) {
 			return installSkill(e, ".pi/agent/skills")
@@ -197,7 +232,11 @@ func Detect(ctx context.Context, e *Env) []Found {
 				break
 			}
 		}
-		_, dirErr := os.Stat(e.path(h.Dir))
+		dir := e.path(h.Dir)
+		if h.dirOf != nil {
+			dir = h.dirOf(e)
+		}
+		_, dirErr := os.Stat(dir)
 		if f.Exe == "" && dirErr != nil {
 			continue
 		}
@@ -264,12 +303,14 @@ func skillText(bin string) ([]byte, error) {
 	return []byte(strings.Replace(s, pluginNote, "If the command is not found, run it as `"+bin+"`.", 1)), nil
 }
 
-func installSkill(e *Env, dir string) ([]string, error) {
+func installSkill(e *Env, dir string) ([]string, error) { return installSkillAt(e, e.path(dir)) }
+
+func installSkillAt(e *Env, skills string) ([]string, error) {
 	text, err := skillText(e.Bin)
 	if err != nil {
 		return nil, err
 	}
-	path := e.path(dir, "holler", "SKILL.md")
+	path := filepath.Join(skills, "holler", "SKILL.md")
 	if !e.DryRun {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return nil, err
@@ -281,16 +322,20 @@ func installSkill(e *Env, dir string) ([]string, error) {
 	return []string{"skill → " + e.display(path)}, nil
 }
 
-func hasSkill(e *Env, dir string) bool {
-	b, err := os.ReadFile(e.path(dir, "holler", "SKILL.md"))
+func hasSkill(e *Env, dir string) bool { return hasSkillAt(e.path(dir)) }
+
+func hasSkillAt(skills string) bool {
+	b, err := os.ReadFile(filepath.Join(skills, "holler", "SKILL.md"))
 	return err == nil && bytes.Contains(b, []byte("name: holler"))
 }
 
-func uninstallSkill(e *Env, dir string) ([]string, error) {
-	if !hasSkill(e, dir) {
+func uninstallSkill(e *Env, dir string) ([]string, error) { return uninstallSkillAt(e, e.path(dir)) }
+
+func uninstallSkillAt(e *Env, skills string) ([]string, error) {
+	if !hasSkillAt(skills) {
 		return nil, nil
 	}
-	p := e.path(dir, "holler")
+	p := filepath.Join(skills, "holler")
 	if !e.DryRun {
 		if err := os.RemoveAll(p); err != nil {
 			return nil, err

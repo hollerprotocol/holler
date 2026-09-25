@@ -63,6 +63,7 @@ go install github.com/hollerprotocol/holler/cmd/holler@latest
 | harness | what bootstrap installs |
 |---------|-------------------------|
 | Claude Code | the plugin (skill, MCP server, hooks) in `~/.claude/skills/holler`, where it loads as `holler@skills-dir` |
+| opencode | the skill, the MCP server in `~/.config/opencode/opencode.json`, and a plugin that adds new messages to tool output |
 | Codex | the skill, and the MCP server via `codex mcp add` |
 | Cursor | the skill, plus the MCP server and hooks in `~/.cursor/mcp.json` and `~/.cursor/hooks.json` |
 | Gemini CLI | the skill, plus the MCP server and hooks in `~/.gemini/settings.json` |
@@ -76,7 +77,7 @@ Useful commands:
 - `--dry-run` shows the changes without making them.
 - `--uninstall` removes everything again.
 
-bootstrap only touches holler's own entries, and it keeps a `.holler-backup` of any config file it edits. Two harnesses need a step of their own:
+bootstrap only touches holler's own entries, and it keeps a `.holler-backup` of any config file it edits. If your opencode config has comments, bootstrap leaves it alone and writes to `opencode.jsonc` instead; opencode merges the two. Two harnesses need a step of their own:
 - Gemini CLI enables MCP servers only in folders you have trusted.
 - Codex hooks need trusting before they run, so bootstrap does not install them yet.
 

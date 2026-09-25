@@ -56,14 +56,14 @@ func read(t *testing.T, path string) string {
 
 func TestDetect(t *testing.T) {
 	e, _ := testEnv(t, "codex")
-	for _, d := range []string{".claude", ".cursor", ".pi/agent"} {
+	for _, d := range []string{".claude", ".cursor", ".pi/agent", ".config/opencode"} {
 		os.MkdirAll(filepath.Join(e.Home, d), 0o755)
 	}
 	var ids []string
 	for _, f := range Detect(context.Background(), e) {
 		ids = append(ids, f.ID)
 	}
-	if want := []string{"claude", "codex", "cursor", "pi"}; !reflect.DeepEqual(ids, want) {
+	if want := []string{"claude", "opencode", "codex", "cursor", "pi"}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("detected %v, want %v", ids, want)
 	}
 }
@@ -247,7 +247,7 @@ func TestGeminiKeepsUserConfig(t *testing.T) {
 func TestDryRun(t *testing.T) {
 	e, calls := testEnv(t, "codex", "cursor-agent")
 	e.DryRun = true
-	for _, id := range []string{"claude", "codex", "cursor", "gemini", "pi"} {
+	for _, id := range []string{"claude", "opencode", "codex", "cursor", "gemini", "pi"} {
 		did, err := Lookup(id).Install(context.Background(), e)
 		if err != nil || len(did) == 0 {
 			t.Fatalf("%s: %v %v", id, did, err)
@@ -256,6 +256,89 @@ func TestDryRun(t *testing.T) {
 	entries, _ := os.ReadDir(e.Home)
 	if len(entries) != 0 || len(*calls) != 0 {
 		t.Fatalf("dry run wrote %v and ran %v", entries, *calls)
+	}
+}
+
+func TestOpencode(t *testing.T) {
+	e, _ := testEnv(t, "opencode")
+	ctx := context.Background()
+	dir := filepath.Join(e.Home, ".config/opencode")
+	cfg := filepath.Join(dir, "opencode.json")
+	write(t, cfg, `{"model": "anthropic/claude-sonnet-5", "mcp": {"other": {"type": "local", "command": ["x"]}}}`)
+	h := Lookup("opencode")
+	for i := 0; i < 2; i++ {
+		if _, err := h.Install(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var c struct {
+		Model string
+		MCP   map[string]struct {
+			Type    string
+			Command []string
+			Enabled bool
+		} `json:"mcp"`
+	}
+	json.Unmarshal([]byte(read(t, cfg)), &c)
+	if s := c.MCP["holler"]; c.Model == "" || c.MCP["other"].Type != "local" || s.Type != "local" || !reflect.DeepEqual(s.Command, []string{bin, "mcp"}) || !s.Enabled {
+		t.Fatalf("opencode.json:\n%s", read(t, cfg))
+	}
+	plugin := read(t, filepath.Join(dir, "plugins/holler.js"))
+	if !strings.Contains(plugin, `const HOLLER = "`+bin+`"`) || !strings.Contains(plugin, `"tool.execute.after"`) {
+		t.Fatalf("plugin:\n%s", plugin)
+	}
+	if !strings.Contains(read(t, filepath.Join(dir, "skills/holler/SKILL.md")), "name: holler") {
+		t.Fatal("skill missing")
+	}
+	if st := h.Status(e); !st.Skill || !st.MCP || !st.Hooks {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := h.Uninstall(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(read(t, cfg), "holler") || !strings.Contains(read(t, cfg), "other") {
+		t.Fatalf("opencode.json after uninstall:\n%s", read(t, cfg))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "plugins/holler.js")); !os.IsNotExist(err) {
+		t.Fatal("plugin left behind")
+	}
+}
+
+// A user's opencode.json with comments is never rewritten: holler goes into
+// opencode.jsonc, which opencode merges with it.
+func TestOpencodeJSONC(t *testing.T) {
+	e, _ := testEnv(t, "opencode")
+	e.ConfigHome = filepath.Join(e.Home, "xdg")
+	dir := filepath.Join(e.ConfigHome, "opencode")
+	withComments := "{\n  // my settings\n  \"theme\": \"tokyonight\",\n}\n"
+	write(t, filepath.Join(dir, "opencode.json"), withComments)
+	if _, err := Lookup("opencode").Install(context.Background(), e); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, filepath.Join(dir, "opencode.json")) != withComments {
+		t.Fatal("rewrote a config file with comments")
+	}
+	if !opencodeHasServer(filepath.Join(dir, "opencode.jsonc")) {
+		t.Fatalf("opencode.jsonc:\n%s", read(t, filepath.Join(dir, "opencode.jsonc")))
+	}
+	// With both files taken there is nowhere safe to write: say what to add.
+	os.Remove(filepath.Join(dir, "opencode.jsonc"))
+	write(t, filepath.Join(dir, "opencode.jsonc"), withComments)
+	if _, err := Lookup("opencode").Install(context.Background(), e); err == nil || !strings.Contains(err.Error(), "add holler") {
+		t.Fatalf("expected manual instructions, got %v", err)
+	}
+}
+
+// The plugin must be valid JavaScript (checked with node when available).
+func TestOpencodePluginSyntax(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not installed")
+	}
+	f := filepath.Join(t.TempDir(), "holler.mjs")
+	os.WriteFile(f, opencodePlugin(`/opt/my "tools"/holler`), 0o644)
+	if out, err := exec.Command(node, "--check", f).CombinedOutput(); err != nil {
+		t.Fatalf("node --check: %v\n%s", err, out)
 	}
 }
 

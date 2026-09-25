@@ -11,10 +11,11 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
   - downloads with `gh`, or with `curl` plus `GITHUB_TOKEN` for the private repository
   - then offers to run `holler bootstrap`
 - `holler bootstrap`:
-  - detects the agent harnesses on the machine: Claude Code, Codex, Cursor, Gemini CLI, Copilot CLI, grok, pi
+  - detects the agent harnesses on the machine: Claude Code, opencode, Codex, Cursor, Gemini CLI, Copilot CLI, grok, pi
   - installs holler into the ones you pick, through an interactive picker or `--all` / `--harness`; `--list`, `--dry-run` and `--uninstall` are also available
   - edits config files in place, keeping key order, and makes a one-time backup of each
 - `holler hook --format cursor|gemini|codex`, so hooks work in Cursor and Gemini CLI as well as Claude Code.
+- opencode gets a plugin (`~/.config/opencode/plugins/holler.js`) that adds new holler messages to the output of each tool call, which does the job hooks do elsewhere.
 - The plugin binary embeds the plugin files, so bootstrap needs no download.
 
 ### Changed

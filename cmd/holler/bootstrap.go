@@ -24,7 +24,7 @@ var (
 )
 
 func cmdBootstrap(ctx context.Context, args []string) error {
-	f := newFlags("bootstrap", "", "Install holler into the agent harnesses on this machine, so their next sessions\ncan message other agents. Detects Claude Code, Codex, Cursor, Gemini CLI,\nCopilot CLI, grok and pi, and asks which to set up (or use --all / --harness).\nEach gets what it supports: the skill, the MCP server, and hooks that bring\ninbound messages into the model's context. Safe to run again; --uninstall undoes it.")
+	f := newFlags("bootstrap", "", "Install holler into the agent harnesses on this machine, so their next sessions\ncan message other agents. Detects Claude Code, opencode, Codex, Cursor,\nGemini CLI, Copilot CLI, grok and pi, and asks which to set up (or use --all / --harness).\nEach gets what it supports: the skill, the MCP server, and hooks that bring\ninbound messages into the model's context. Safe to run again; --uninstall undoes it.")
 	only := f.StringSlice("harness", nil, "harnesses to set up: "+strings.Join(bootstrap.IDs(), ", "))
 	all := f.Bool("all", false, "set up every detected harness without asking")
 	yes := f.BoolP("yes", "y", false, "do not ask (with no --harness, the same as --all)")
@@ -218,9 +218,7 @@ func printDetected(found []bootstrap.Found, asJSON bool) error {
 		if len(version) > 27 {
 			version = version[:26] + "…"
 		}
-		hasMCP := strings.Contains(fd.Gets, "MCP")
-		hasHooks := strings.Contains(fd.Gets, "hooks")
-		lipgloss.Printf("%-20s %-28s %s%s%s\n", fd.Name, version, mark(fd.Status.Skill, true), mark(fd.Status.MCP, hasMCP), mark(fd.Status.Hooks, hasHooks))
+		lipgloss.Printf("%-20s %-28s %s%s%s\n", fd.Name, version, mark(fd.Status.Skill, true), mark(fd.Status.MCP, fd.MCP), mark(fd.Status.Hooks, fd.Hooks))
 	}
 	return nil
 }
