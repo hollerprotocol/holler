@@ -2,9 +2,6 @@ import type { CSSProperties } from "react"
 
 import { orbColors } from "@/lib/orb"
 
-import { useAvatarStyle } from "@/lib/avatar"
-
-import { Bot } from "./Bot"
 import { HarnessBadge } from "./HarnessLogo"
 
 /** An agent's gradient orb. Working agents breathe and swirl faster; quiet
@@ -27,13 +24,7 @@ export function Orb({
   style?: CSSProperties
 }) {
   const c = orbColors(agentKey)
-  const avatars = useAvatarStyle()
-  const orb =
-    avatars === "bots" ? (
-      <span className={`inline-flex shrink-0 ${className}`} style={style}>
-        <Bot agentKey={agentKey} size={size} working={working} dim={dim} />
-      </span>
-    ) : (
+  const orb = (
     <span
       aria-hidden
       className={`orb inline-block shrink-0 ${working ? "is-working" : ""} ${dim ? "is-dim" : ""} ${className}`}
