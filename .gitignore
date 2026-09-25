@@ -3,3 +3,5 @@
 /plugin/holler/libexec/holler-*
 __pycache__/
 *.pyc
+/holler
+/.claude/
