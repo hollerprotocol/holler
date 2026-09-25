@@ -25,6 +25,7 @@ type Status struct {
 	Tailcat     string     `json:"tailcat,omitempty"` // bare tc... address to share
 	TailcatErr  string     `json:"tailcat_error,omitempty"`
 	TailcatWant bool       `json:"tailcat_enabled"`
+	Presence    bool       `json:"presence,omitempty"` // publishing presence (see NOTES.md)
 	Serve       []string   `json:"serve,omitempty"`
 	Accept      string     `json:"accept"`
 	Peers       []PeerView `json:"peers"`

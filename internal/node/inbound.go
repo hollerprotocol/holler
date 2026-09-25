@@ -50,6 +50,8 @@ func (n *Node) handleLine(c *Conn, line []byte) error {
 		return n.onGrant(c, line)
 	case wire.TIntroduce:
 		return n.onIntroduce(c, line)
+	case wire.TPresence:
+		return n.onPresence(c, line)
 	case "":
 		return c.fatal(wire.ErrBadFrame, env.ID, "missing message type")
 	}
@@ -222,6 +224,7 @@ func (n *Node) onResume(c *Conn, line []byte) error {
 		}
 	}
 	c.startPump()
+	n.presenceOnConnect(c)
 	n.bump()
 	return nil
 }

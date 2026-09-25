@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -57,6 +58,10 @@ type Config struct {
 	// AllowPlaintext permits plain TCP to public addresses (see
 	// transport.Transport.AllowPublicTCP).
 	AllowPlaintext bool
+	// Presence publishes this node's signed presence to its peers, who
+	// gossip it on (presence.go). Receiving and forwarding other agents'
+	// presence happens either way.
+	Presence bool
 }
 
 func (c *Config) setDefaults() {
@@ -109,6 +114,10 @@ type Node struct {
 
 	cmu      sync.Mutex
 	changeCh chan struct{}
+
+	presMu  sync.Mutex
+	presSeq int64           // last presence sequence number used
+	presDoc json.RawMessage // last signed presence document we published
 }
 
 type listener struct {
@@ -221,6 +230,10 @@ func (n *Node) Start() error {
 	}
 	n.wg.Add(1)
 	go n.maintain()
+	if n.cfg.Presence {
+		n.wg.Add(1)
+		go n.presenceLoop()
+	}
 	return nil
 }
 
@@ -538,6 +551,7 @@ func (n *Node) maintain() {
 		} else if k > 0 {
 			n.logf("expired %d outbox entries older than %v", k, n.cfg.OutboxTTL)
 		}
+		n.expirePresence()
 		n.reconnectAll()
 	}
 }

@@ -146,7 +146,7 @@ func Open(path string) (*Store, error) {
 	// One connection serializes all access. The workload is small and this
 	// rules out SQLITE_BUSY between our own goroutines.
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schema + presenceSchema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store schema: %w", err)
 	}
