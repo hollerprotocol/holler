@@ -198,6 +198,8 @@ func (d *Daemon) Call(ctx context.Context, method string, params json.RawMessage
 			}
 		}
 		return d.n.Store().Blobs(key)
+	case "presence":
+		return d.presence()
 	case "shutdown":
 		go func() {
 			time.Sleep(100 * time.Millisecond)
@@ -245,6 +247,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		Tailcat:     tc,
 		TailcatErr:  tcErr,
 		TailcatWant: slices.Contains(d.cfg.Listen, "tailcat"),
+		Presence:    n.SharesPresence(),
 		Serve:       d.cfg.Policy.Serve,
 		Accept:      d.cfg.Policy.Accept,
 		Peers:       peers,

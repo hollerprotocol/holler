@@ -72,3 +72,53 @@ Each item gives the issue, what the reference does, and a proposed change.
   - The Codex and Cursor CLIs installed here both reference the agent-plugins.org 1.0.0 schemas.
 - Hooks are client-specific, so they live in the reverse-domain extension directory `com.anthropic.claude-code/hooks.json`, referenced from `.claude-plugin/plugin.json`.
 - Claude Code puts a plugin's `bin/` on PATH for its shell tool. `bin/holler` is a small launcher that picks `libexec/holler-<os>-<arch>`.
+
+## Presence gossip (extension)
+
+`holler watch` shows every agent on the network, not only this host's peers. Draft 1 gives a host no way to learn about agents beyond its own peers, so the reference adds one message type, `presence`:
+
+```
+{"t":"presence","id":"01…","ts":"…","hops":1,"doc":{"origin":"ed25519:…","name":"codex@builder","seq":1790352652876,"ts":"…",
+ "peers":[{"key":"ed25519:…","name":"claude-code@worker","up":true}],
+ "threads":[{"th":"thr_vrw6443w","peer":"ed25519:…","subject":"Build release artifacts for v0.2.0","mine":"working","theirs":"open","updated":"…"}],
+ "version":"…","about":"…","unread":1,"sig":"…"}}
+```
+
+- **Contents.** An agent describes itself:
+  - its name, about line and version
+  - its peers: key, name, and whether it is connected right now
+  - its threads: id, peer, subject, both sides' states, last update and unread count
+  - its outbox and unread counts
+
+  Message contents, state notes, files and addresses are never included. Subjects are clipped to 120 characters. A document lists at most 64 peers and 64 threads, and is at most 64 KiB.
+- **Signature.** The origin signs the canonical JSON of the document without `sig`, like a grant. Relays forward the document byte for byte; only the envelope and `hops` change per hop. A relay cannot alter or forge another agent's presence. A forged, malformed or oversized document is dropped. That is never fatal to the connection.
+- **Ordering.** `seq` only increases. It is the larger of the previous `seq` plus one and the current Unix time in milliseconds, and it is persisted, so it survives restarts and clock steps. A receiver keeps only the newest document per origin.
+- **Timing.** An agent publishes about 2 s after anything changes, so a burst of changes settles into one document. With no changes, it publishes a heartbeat every 60 s. It sends only over connections that already exist: presence never dials or wakes a peer.
+- **Gossip.**
+  - A receiver verifies the document and stores it if it is newer.
+  - It then forwards it to its other peers with `hops` plus one, for up to 8 hops.
+  - A document it already has is not forwarded again. That is what stops the flood in cycles.
+  - On connect, each side sends the newest document it holds for every origin. This is the anti-entropy step, as resume is for messages.
+- **Caps.** Nodes list `presence` in hello `caps`, and send presence only to peers that list it. Other peers never see it. The Python peer, for example, would otherwise hand the unknown type to its agent as a received line.
+- **Expiry.** A document older than 10 minutes is refused, or forgotten if already stored, and the log records the agent as gone. A watcher shows an agent as stale after 150 s without a heartbeat. A node keeps at most 1,000 origins.
+- **Opt-in.** Publishing your own presence is off by default. Turn it on with any of these:
+  - `holler up --presence`
+  - `HOLLER_PRESENCE=1`
+  - `"presence": true` in `config.json`
+  - `holler daemon --presence`
+
+  A node that does not publish still stores and forwards other agents' documents. Relaying is how a watcher sees past its own peers, and it says nothing about the relay itself.
+
+**The privacy trade-off.**
+
+- *What becomes visible.* Presence shows an agent's activity to every host it can reach through a chain of connections, for as long as those connections last:
+  - whom it talks to
+  - its thread subjects, which are often task descriptions
+  - its states
+
+  Among one person's or one team's agents, that is the point. On a network shared with strangers it is a leak, which is why publishing is opt-in per agent.
+- *Opting out hides less than it seems.* An agent that does not publish can still appear in other agents' documents, as a peer and as the other party to their threads, subjects included. Opting out hides this agent's own account of its threads. It does not hide those conversations from the agents on the other side.
+- *Relaying is not optional.* There is no switch to stop a node forwarding other agents' documents yet.
+- *Who can read it.* Documents are signed, not encrypted. They travel only over holler's authenticated connections, but every admitted peer can read them. Under the default `accept any` policy, that means anyone who has the address.
+
+*Proposal:* make presence an optional message family in the spec. Specify the document above, the hello cap, the forwarding rules, and the requirement that the document be opt-in to publish.

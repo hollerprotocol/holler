@@ -33,6 +33,7 @@ type Config struct {
 	Trace        bool        `json:"trace,omitempty"`
 	Plaintext    bool        `json:"allow_plaintext,omitempty"` // plain TCP to public addresses
 	Verbose      bool        `json:"verbose,omitempty"`         // include tailcat's own logs
+	Presence     bool        `json:"presence,omitempty"`        // publish signed presence (NOTES.md)
 }
 
 // DefaultHome is $HOLLER_HOME or ~/.holler.
@@ -112,6 +113,9 @@ func LoadConfig(home string) (Config, error) {
 	if v, ok := env("HOLLER_TRACE"); ok && v != "0" {
 		cfg.Trace = true
 	}
+	if v, ok := env("HOLLER_PRESENCE"); ok {
+		cfg.Presence = v != "0" && v != "false"
+	}
 	if v, ok := env("HOLLER_ALLOW_PLAINTEXT"); ok && v != "0" {
 		cfg.Plaintext = true
 	}
@@ -134,6 +138,7 @@ func (c Config) nodeConfig() (node.Config, error) {
 		Trace:     c.Trace,
 
 		AllowPlaintext: c.Plaintext,
+		Presence:       c.Presence,
 	}
 	if c.PingInterval != "" {
 		d, err := time.ParseDuration(c.PingInterval)

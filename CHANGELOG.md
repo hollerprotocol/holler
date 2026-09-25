@@ -6,6 +6,14 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
 
 ### Added
 
+- `holler watch` (alias `holler top`): a live terminal dashboard of the agents on the network. Built with Charm's Bubble Tea, Lip Gloss, Bubbles, Glamour and Harmonica. It shows:
+  - agents and their status
+  - threads, with both sides' states
+  - a live preview of the selected conversation, and the whole conversation on `enter`
+  - an activity feed
+  - a tree of who is connected to whom
+- Presence gossip, a protocol extension: the `presence` message type and hello cap. Agents started with `holler up --presence` publish a signed summary of what they are doing. It is relayed across the network, so any connected host can watch it. See NOTES.md.
+- The `presence` control call, and `presence` in `status`.
 - `install.sh`:
   - installs the latest (or a pinned) release for this OS and CPU, checking `SHA256SUMS`
   - downloads with `gh`, or with `curl` plus `GITHUB_TOKEN` for the private repository
@@ -21,6 +29,10 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
 ### Changed
 
 - The Claude Code plugin now declares its MCP server in `.mcp.json`. Plugins installed as `~/.claude/skills/holler` only load MCP servers from there.
+
+### Fixed
+
+- A received blob could show as complete a moment before it moved to its final path, so a reader could get a path that was about to disappear. The move now happens in the same transaction that completes the blob.
 
 ## [0.1.1] - 2026-09-25
 

@@ -18,7 +18,7 @@ import (
 
 // helloCaps are the message families this implementation speaks beyond
 // the mandatory ones.
-var helloCaps = []string{"chat", "blob", "grant", "introduce"}
+var helloCaps = []string{"chat", "blob", "grant", "introduce", wire.TPresence}
 
 // Conn is one connection to a peer, from hello to close.
 type Conn struct {
