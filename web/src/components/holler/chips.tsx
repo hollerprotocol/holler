@@ -5,7 +5,7 @@ import type { Agent, ThreadState } from "@/lib/types"
 
 import Avatar from "boring-avatars"
 
-import { PALETTE } from "@/lib/avatar"
+import { agentPalette } from "@/lib/avatar"
 
 import { HarnessLogo } from "./HarnessLogo"
 
@@ -31,7 +31,7 @@ export function AgentChip({
         agent?.harness ? (
           <HarnessLogo harness={agent.harness} size={11} />
         ) : (
-          <Avatar name={agentKey} variant="marble" colors={PALETTE} size={16} />
+          <Avatar name={agentKey} variant="marble" colors={agentPalette(agentKey)} size={16} />
         )
       }
       className={`mx-0 max-w-full [&>span:last-child]:truncate ${className}`}

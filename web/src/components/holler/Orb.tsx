@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react"
 import Avatar from "boring-avatars"
 
-import { PALETTE } from "@/lib/avatar"
+import { agentPalette } from "@/lib/avatar"
 
 import { HarnessBadge } from "./HarnessLogo"
 
@@ -30,7 +30,7 @@ export function Orb({
       className={`agent-avatar inline-flex shrink-0 ${working ? "is-working" : ""} ${dim ? "is-dim" : ""} ${className}`}
       style={{ width: size, height: size, ...style }}
     >
-      <Avatar name={agentKey} variant="marble" colors={PALETTE} size={size} />
+      <Avatar name={agentKey} variant="marble" colors={agentPalette(agentKey)} size={size} />
     </span>
   )
   if (!harness) return avatar
