@@ -51,16 +51,8 @@ function hash(s: string): number {
   return h >>> 0
 }
 
-/** An agent's bot: the same shape, face, shade and rhythm wherever it
- *  appears. With 18 shapes, agents on a network often share one, so the
- *  shade varies too (brightness 0.88 to 1.12). */
-export function botFor(key: string): { type: BotAvatarType; face: BotAvatarFace; seed: number; brightness: number } {
+/** An agent's bot: the same shape, face and rhythm wherever it appears. */
+export function botFor(key: string): { type: BotAvatarType; face: BotAvatarFace; seed: number } {
   const h = hash(key)
-  const g = hash(key + "#shade")
-  return {
-    type: TYPES[h % TYPES.length],
-    face: (h >>> 8) & 1 ? "mouth" : "eyes",
-    seed: ((h >>> 12) % 1000) / 1000,
-    brightness: 0.88 + ((g % 1000) / 1000) * 0.24,
-  }
+  return { type: TYPES[h % TYPES.length], face: (h >>> 8) & 1 ? "mouth" : "eyes", seed: ((h >>> 12) % 1000) / 1000 }
 }

@@ -14,16 +14,7 @@ async function transport(): Promise<Transport> {
   return http
 }
 
-// Dev-only design lab for the bot avatars: /?botlab
-if (import.meta.env.DEV && new URLSearchParams(location.search).has("botlab")) {
-  import("./dev/BotLab").then(({ BotLab }) =>
-    createRoot(document.getElementById("root")!).render(
-      <ThemeProvider>
-        <BotLab />
-      </ThemeProvider>,
-    ),
-  )
-} else transport().then((t) => {
+transport().then((t) => {
   const store = new HollerStore(t)
   setStore(store)
   store.start()
