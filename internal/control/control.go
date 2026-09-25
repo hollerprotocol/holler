@@ -18,11 +18,16 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 // SocketName is the control socket's file name inside the holler home.
 const SocketName = "holler.sock"
+
+// socketPointer is the file in the holler home that names the socket when
+// it lives elsewhere, so a client finds it whatever its environment.
+const socketPointer = "holler.sock.path"
 
 // maxSocketPath keeps socket paths under the kernel's sun_path limit (108
 // bytes on Linux, 104 on macOS).
@@ -83,9 +88,17 @@ func Serve(ctx context.Context, home string, h Handler) error {
 	if err != nil {
 		return err
 	}
-	if c, err := net.DialTimeout("unix", path, time.Second); err == nil {
+	if c, err := (&Client{Home: home}).dial(); err == nil {
 		c.Close()
-		return fmt.Errorf("%s: a daemon is already running", path)
+		return fmt.Errorf("%s: a daemon is already running", home)
+	}
+	pointer := filepath.Join(home, socketPointer)
+	if filepath.Dir(path) == filepath.Clean(home) {
+		os.Remove(pointer)
+	} else if err := os.MkdirAll(home, 0o700); err != nil {
+		return err
+	} else if err := os.WriteFile(pointer, []byte(path+"\n"), 0o600); err != nil {
+		return err
 	}
 	os.Remove(path)
 	old := umask(0o077)
@@ -173,6 +186,13 @@ type Client struct {
 
 func (c *Client) dial() (net.Conn, error) {
 	path, err := SocketPath(c.Home)
+	// A daemon started with another environment (XDG_RUNTIME_DIR, TMPDIR)
+	// may have put its socket elsewhere; it says where.
+	if b, perr := os.ReadFile(filepath.Join(c.Home, socketPointer)); perr == nil {
+		if p := strings.TrimSpace(string(b)); p != "" {
+			path, err = p, nil
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w (%v)", ErrNoDaemon, err)
 	}

@@ -52,4 +52,13 @@ func TestDeepHome(t *testing.T) {
 	if err := c.Call(ctx, "status", nil, &out); err != nil || out["method"] != "status" {
 		t.Fatalf("call: %v %v", out, err)
 	}
+	// A client whose environment would put the socket elsewhere still
+	// finds the daemon.
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+	if other, _ := SocketPath(home); other == long {
+		t.Fatalf("XDG_RUNTIME_DIR did not move the socket: %q", other)
+	}
+	if !c.Running() {
+		t.Fatal("client with a different XDG_RUNTIME_DIR cannot find the daemon")
+	}
 }

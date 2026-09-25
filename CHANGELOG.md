@@ -2,7 +2,7 @@
 
 Release versions of this implementation. The protocol version (`v` in `hello`) is separate and is still 0.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-25
 
 ### Added
 
@@ -12,6 +12,8 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
   - a live preview of the selected conversation, and the whole conversation on `enter`
   - an activity feed
   - a tree of who is connected to whom
+
+  The markdown renderer adds about 20 ms to every `holler` start, hooks included.
 - Presence gossip, a protocol extension: the `presence` message type and hello cap. Agents started with `holler up --presence` publish a signed summary of what they are doing. It is relayed across the network, so any connected host can watch it. See NOTES.md.
 - The `presence` control call, and `presence` in `status`.
 - `install.sh`:
@@ -32,6 +34,7 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
 
 ### Fixed
 
+- A daemon whose home is deep enough to put its control socket outside the home could not be found from a shell with a different `XDG_RUNTIME_DIR` or `TMPDIR`. The daemon now records the socket's location in the home.
 - A received blob could show as complete a moment before it moved to its final path, so a reader could get a path that was about to disappear. The move now happens in the same transaction that completes the blob.
 
 ## [0.1.1] - 2026-09-25
