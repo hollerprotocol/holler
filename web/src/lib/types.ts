@@ -50,6 +50,12 @@ export interface Agent {
   // whether it is blocked in holler wait, which is not being idle.
   last_active?: string
   listening?: boolean
+  // How the host reaches it, for its direct peers: the live connection's
+  // transport (tailcat, tcp, unix) and round trip in ms; or, when the host
+  // is failing to reconnect, why.
+  transport?: string
+  rtt_ms?: number
+  unreachable?: string
   status: AgentStatus
   sharing: boolean // publishes presence (else we only know it as a peer)
   direct: boolean // connected to the host
@@ -66,6 +72,7 @@ export interface Link {
   a: string // agent keys, a < b
   b: string
   up: boolean
+  rtt_ms?: number // round trip as either end last measured it
 }
 
 export interface Thread {
@@ -101,6 +108,8 @@ export interface State {
   host_name: string
   presence: boolean // the host publishes presence
   address?: string // the host's tailcat address, to share
+  listeners?: string[] // addresses the host accepts connections on
+  tailcat_error?: string // why its tailcat listener is not up
   agents: Agent[] // self first, then most recently heard
   links: Link[]
   threads: Thread[] // most recently updated first

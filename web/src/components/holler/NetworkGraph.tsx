@@ -162,6 +162,12 @@ function layout(state: State, w: number, h: number): Map<string, Pt> {
   return pos
 }
 
+// The midpoint of curve(p, q), where a link's latency is labelled.
+function curveMid(p: Pt, q: Pt): Pt {
+  const bend = 0.08
+  return { x: (p.x + q.x) / 2 - ((q.y - p.y) * bend) / 2, y: (p.y + q.y) / 2 + ((q.x - p.x) * bend) / 2 }
+}
+
 function curve(p: Pt, q: Pt): string {
   const mx = (p.x + q.x) / 2
   const my = (p.y + q.y) / 2
@@ -186,6 +192,7 @@ const PULSE_COLOR: Partial<Record<Activity["kind"], string>> = {
 
 function statusLine(a: Agent): { text: string; tone: string; shimmer?: boolean } {
   if (a.status === "stale") return { text: "quiet", tone: "text-ink-3" }
+  if (a.unreachable) return { text: "can't reach", tone: "text-orange" }
   if (a.status === "offline") return { text: "offline", tone: "text-ink-3" }
   const quiet = quietMinutes(a)
   if (quiet !== undefined) return { text: `no activity ${quiet}m`, tone: "text-orange" }
@@ -297,6 +304,16 @@ export function NetworkGraph({
                 strokeDasharray={l.up ? undefined : "3 5"}
                 style={{ transition: "stroke 200ms, d 600ms var(--ease-out-strong)" }}
               />
+              {l.up && !!l.rtt_ms && (
+                <text
+                  x={curveMid(p, q).x}
+                  y={curveMid(p, q).y - 4}
+                  textAnchor="middle"
+                  className="fill-ink-3 font-mono text-[10px] [paint-order:stroke] [stroke-width:3px] [stroke:var(--surface)]"
+                >
+                  {l.rtt_ms} ms
+                </text>
+              )}
               {flowing && l.up && (
                 <path
                   d={d}

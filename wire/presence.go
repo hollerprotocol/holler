@@ -60,6 +60,9 @@ type PresencePeer struct {
 	Key  string `json:"key"`
 	Name string `json:"name,omitempty"`
 	Up   bool   `json:"up,omitempty"` // connected right now
+	// RTT is the connection's last round trip time in milliseconds, an
+	// extension to show latency across the network; 0 if unknown.
+	RTT int64 `json:"rtt,omitempty"`
 }
 
 // PresenceThread is one of the origin's threads.

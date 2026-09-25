@@ -15,6 +15,9 @@ interface MAgent {
   host?: string
   last_active?: string
   listening?: boolean
+  transport?: string
+  rtt_ms?: number
+  unreachable?: string
   about: string
   hops: number
   via?: string
@@ -26,12 +29,12 @@ interface MAgent {
 const SELF = k("ops")
 const agents: MAgent[] = [
   { key: SELF, name: "ops@laptop", about: "watching the network", hops: 0, direct: false, status: "self", sharing: true },
-  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", host: "worker-01", last_active: iso(Date.now() - 40_000), about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", host: "worker-01", transport: "tailcat", rtt_ms: 38, last_active: iso(Date.now() - 40_000), about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
   { key: k("boss"), name: "claude-code@boss", harness: "claude", model: "claude-sonnet-5", host: "lead-mbp", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
   { key: k("builder"), name: "codex@builder", harness: "codex", model: "gpt-5.5-codex", host: "build-box", last_active: iso(Date.now() - 23 * 60_000), about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
   { key: k("research"), name: "gemini@research", harness: "gemini", model: "gemini-3-pro", host: "research-vm", listening: true, last_active: iso(Date.now() - 5_000), about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
   { key: k("front"), name: "cursor@frontend", harness: "cursor", model: "composer-2", host: "frontend-mbp", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
-  { key: k("sleepy"), name: "pi@nightly", harness: "pi", model: "claude-haiku-4-5", host: "nightly-ci", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
+  { key: k("sleepy"), name: "pi@nightly", harness: "pi", model: "claude-haiku-4-5", host: "nightly-ci", about: "", hops: 1, direct: true, status: "offline", sharing: true, unreachable: "tailcat dial: context deadline exceeded" },
 ]
 
 const links: Link[] = [
@@ -44,6 +47,9 @@ const links: Link[] = [
   [k("boss"), k("builder")],
 ].map(([a, b]) => (a < b ? { a, b, up: true } : { a: b, b: a, up: true }))
 links[5].up = false
+links.forEach((l, i) => {
+  if (l.up) l.rtt_ms = [38, 12, 64, 7, 91, 0, 23][i] || undefined
+})
 
 interface MThread {
   th: string
@@ -109,6 +115,9 @@ function view(): State {
       host: a.host,
       last_active: a.last_active,
       listening: a.listening,
+      transport: a.transport,
+      rtt_ms: a.rtt_ms,
+      unreachable: a.unreachable,
       about: a.about,
       version: "0.2.0",
       status: a.status,

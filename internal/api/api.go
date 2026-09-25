@@ -66,6 +66,7 @@ type PeerView struct {
 	Since       time.Time    `json:"since,omitzero"`
 	Dialing     bool         `json:"dialing,omitempty"`
 	DialErr     string       `json:"dial_error,omitempty"`
+	RTTms       int64        `json:"rtt_ms,omitempty"` // the connection\'s last ping round trip
 	Parked      bool         `json:"parked,omitempty"`
 	Outbox      int          `json:"outbox"`
 	OpenThreads int          `json:"open_threads"`

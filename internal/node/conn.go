@@ -50,7 +50,13 @@ type Conn struct {
 
 	lastRecv atomic.Int64
 	missed   atomic.Int32
-	byeSent  atomic.Bool
+	// The last ping sent (id and time, guarded by pingMu) and the round
+	// trip its pong measured, in nanoseconds.
+	pingMu  sync.Mutex
+	pingID  string
+	pingAt  time.Time
+	rtt     atomic.Int64
+	byeSent atomic.Bool
 }
 
 type ctrlItem struct {
@@ -448,10 +454,32 @@ func (c *Conn) pinger() {
 		idle := time.Since(time.Unix(0, c.lastRecv.Load()))
 		if idle >= interval-interval/10 {
 			c.missed.Add(1)
-			c.send(wire.Ping{Envelope: wire.Envelope{T: wire.TPing, ID: c.n.ids.New(), TS: wire.Now()}})
+			c.ping()
 		}
 	}
 }
+
+// ping sends a ping and remembers it, to time the pong.
+func (c *Conn) ping() {
+	p := wire.Ping{Envelope: wire.Envelope{T: wire.TPing, ID: c.n.ids.New(), TS: wire.Now()}}
+	c.pingMu.Lock()
+	c.pingID, c.pingAt = p.ID, time.Now()
+	c.pingMu.Unlock()
+	c.send(p)
+}
+
+// onPong records the round trip time when the pong answers our last ping.
+func (c *Conn) onPong(re string) {
+	c.pingMu.Lock()
+	id, at := c.pingID, c.pingAt
+	c.pingMu.Unlock()
+	if re != "" && re == id {
+		c.rtt.Store(int64(time.Since(at)))
+	}
+}
+
+// RTT is the last measured round trip time, or zero.
+func (c *Conn) RTT() time.Duration { return time.Duration(c.rtt.Load()) }
 
 // sendBye starts a graceful close (section 9.6): nothing else is sent, and
 // the connection closes on the peer's bye or after five seconds.

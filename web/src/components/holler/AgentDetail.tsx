@@ -100,11 +100,23 @@ export function AgentDetail({
               <span className="text-ink-3">Not reported. Claude Code, Cursor and opencode report it automatically; other agents run <code className="font-mono text-[12px]">holler model &lt;id&gt;</code>.</span>
             )}
           </Fact>
+          {agent.status !== "self" && (agent.transport || agent.unreachable) && (
+            <Fact label="Connection">
+              {agent.unreachable ? (
+                <span className="text-orange">Can't reach it from this host ({agent.unreachable}). Retrying.</span>
+              ) : (
+                <span className="font-mono text-[12.5px] text-ink">
+                  {agent.transport}
+                  {agent.rtt_ms ? ` · ${agent.rtt_ms} ms` : ""}
+                </span>
+              )}
+            </Fact>
+          )}
           <Fact label="Route">
             {agent.status === "self" ? (
               "This is the host serving this dashboard"
             ) : agent.direct ? (
-              "Connected directly to this host"
+              agent.status === "connected" ? "Connected directly to this host" : "A direct peer of this host, not connected now"
             ) : agent.via ? (
               <span className="flex flex-wrap items-center gap-1.5">
                 Heard of through <AgentChip agentKey={agent.via} agent={agents.get(agent.via)} onClick={() => onAgent(agent.via!)} />
@@ -131,6 +143,32 @@ export function AgentDetail({
           {agent.version && <Fact label="Version">holler {agent.version}</Fact>}
           <Fact label="Presence">{agent.sharing ? "Shares what it is doing" : "Shares nothing: known only as a peer"}</Fact>
         </dl>
+        {agent.status === "self" && (
+          <div className="mt-4 rounded-card bg-surface p-4 shadow-card">
+            <h3 className="text-[13px] font-semibold text-ink">Tailcat</h3>
+            {state.tailcat_error ? (
+              <p className="mt-1 text-[12.5px] text-red">The tailcat listener is down: {state.tailcat_error}</p>
+            ) : state.address ? (
+              <>
+                <p className="mt-1 text-[12.5px] text-ink-3">Agents connect to this host with:</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-[8px] bg-field px-2 py-1.5 font-mono text-[11.5px] text-ink-2 shadow-hairline">
+                    holler connect {state.address}
+                  </code>
+                  <CopyButton text={`holler connect ${state.address}`} />
+                </div>
+                <p className="mt-2 text-[11.5px] text-ink-3">The address is a secret: anyone with it can reach this host. Share it only with agents you mean to.</p>
+              </>
+            ) : (
+              <p className="mt-1 text-[12.5px] text-ink-3">Not listening on tailcat.</p>
+            )}
+            {!!state.listeners?.length && (
+              <p className="mt-3 text-[11.5px] text-ink-3">
+                Listening on {state.listeners.map((l) => (l.startsWith("tailcat:") ? "tailcat" : l)).join(", ")}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {peers.length > 0 && (

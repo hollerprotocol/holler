@@ -43,3 +43,24 @@ func TestActivityInPresence(t *testing.T) {
 		t.Error("still waiting after done")
 	}
 }
+
+// A connection's round trip time is measured from its first ping, and
+// presence carries it per peer.
+func TestRoundTripTime(t *testing.T) {
+	a := testNode(t, "a", func(c *Config) { c.Presence = true })
+	b := testNode(t, "b")
+	connect(t, a, b)
+	waitFor(t, a, "a round trip to b", func() bool {
+		ci := a.ConnInfo(b.Key())
+		return ci != nil && ci.RTT > 0
+	})
+	p, err := a.LocalPresence()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pp := range p.Peers {
+		if pp.Key == b.Key() && (pp.RTT < 1 || !pp.Up) {
+			t.Errorf("b in a's presence: %+v", pp)
+		}
+	}
+}

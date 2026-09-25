@@ -467,9 +467,10 @@ func (n *Node) Connected(key string) bool {
 
 // ConnInfo describes a live connection.
 type ConnInfo struct {
-	Outbound bool      `json:"outbound"`
-	Via      string    `json:"via"`
-	Since    time.Time `json:"since"`
+	Outbound bool          `json:"outbound"`
+	Via      string        `json:"via"`
+	Since    time.Time     `json:"since"`
+	RTT      time.Duration `json:"rtt"` // last ping's round trip; zero until measured
 }
 
 // Conn returns information about key's active connection, if any.
@@ -480,7 +481,7 @@ func (n *Node) ConnInfo(key string) *ConnInfo {
 	if p == nil || p.conn == nil {
 		return nil
 	}
-	return &ConnInfo{Outbound: p.conn.outbound, Via: p.conn.via, Since: p.since}
+	return &ConnInfo{Outbound: p.conn.outbound, Via: p.conn.via, Since: p.since, RTT: p.conn.RTT()}
 }
 
 // Dialing reports whether a reconnect loop is running for key, and its last

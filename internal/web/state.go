@@ -43,17 +43,23 @@ type Agent struct {
 	// LastActive is when it last did something through holler (to 30
 	// seconds for other hosts); Listening says it is blocked in holler wait.
 	LastActive *time.Time `json:"last_active,omitempty"`
-	Listening  bool       `json:"listening,omitempty"`
-	Status     string     `json:"status"`
-	Sharing    bool       `json:"sharing"`
-	Direct     bool       `json:"direct"`
-	Via        string     `json:"via,omitempty"`
-	Hops       int        `json:"hops"`
-	Seen       *time.Time `json:"seen,omitempty"`
-	Threads    int        `json:"threads"`
-	Active     int        `json:"active"`
-	Working    bool       `json:"working"`
-	Waiting    bool       `json:"waiting"`
+	// How this host reaches it, for its direct peers: the transport of the
+	// live connection (tailcat, tcp, unix) and its round trip; or, when
+	// this host is trying and failing to reconnect, why.
+	Transport   string     `json:"transport,omitempty"`
+	RTTms       int64      `json:"rtt_ms,omitempty"`
+	Unreachable string     `json:"unreachable,omitempty"`
+	Listening   bool       `json:"listening,omitempty"`
+	Status      string     `json:"status"`
+	Sharing     bool       `json:"sharing"`
+	Direct      bool       `json:"direct"`
+	Via         string     `json:"via,omitempty"`
+	Hops        int        `json:"hops"`
+	Seen        *time.Time `json:"seen,omitempty"`
+	Threads     int        `json:"threads"`
+	Active      int        `json:"active"`
+	Working     bool       `json:"working"`
+	Waiting     bool       `json:"waiting"`
 }
 
 // Link is a connection between two agents, as either of them reports it.
@@ -61,6 +67,9 @@ type Link struct {
 	A  string `json:"a"`
 	B  string `json:"b"`
 	Up bool   `json:"up"`
+	// RTTms is the connection's round trip time as either end last
+	// measured it (milliseconds; 0 unknown).
+	RTTms int64 `json:"rtt_ms,omitempty"`
 }
 
 // Thread is a conversation between two agents, merged from both sides'
@@ -101,10 +110,14 @@ type State struct {
 	HostName string    `json:"host_name"`
 	Presence bool      `json:"presence"`
 	Address  string    `json:"address,omitempty"`
-	Agents   []Agent   `json:"agents"`
-	Links    []Link    `json:"links"`
-	Threads  []Thread  `json:"threads"`
-	Stats    Stats     `json:"stats"`
+	// Listeners are the addresses this host accepts connections on, and
+	// TailcatError why its tailcat listener is not up, if it is not.
+	Listeners    []string `json:"listeners"`
+	TailcatError string   `json:"tailcat_error,omitempty"`
+	Agents       []Agent  `json:"agents"`
+	Links        []Link   `json:"links"`
+	Threads      []Thread `json:"threads"`
+	Stats        Stats    `json:"stats"`
 }
 
 // same reports whether two states differ only in their time.
@@ -150,6 +163,7 @@ func realAbout(s string) string {
 // agent's presence.
 func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrored []store.MirroredThread, now time.Time) *State {
 	s := &State{At: now, Version: st.Version, Self: st.Key, HostName: st.Name, Presence: st.Presence, Address: st.ShareAddress(),
+		Listeners: append([]string{}, st.Addresses...), TailcatError: st.TailcatErr,
 		Agents: []Agent{}, Links: []Link{}, Threads: []Thread{}}
 	if net == nil {
 		net = &api.Network{}
@@ -204,7 +218,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 	}
 
 	links := map[[2]string]*Link{}
-	link := func(x, y string, up bool) {
+	link := func(x, y string, up bool, rtt int64) {
 		if x == y {
 			return
 		}
@@ -214,9 +228,12 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 		k := [2]string{x, y}
 		if l, ok := links[k]; ok {
 			l.Up = l.Up || up
+			if rtt > 0 && (l.RTTms == 0 || rtt < l.RTTms) {
+				l.RTTms = rtt
+			}
 			return
 		}
-		links[k] = &Link{A: x, B: y, Up: up}
+		links[k] = &Link{A: x, B: y, Up: up, RTTms: rtt}
 	}
 
 	for _, p := range st.Peers {
@@ -225,9 +242,13 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 		a.About = cmp.Or(a.About, realAbout(p.About))
 		if p.Connected {
 			a.Status = statusConnected
+			a.Transport, _, _ = strings.Cut(p.Via, ":")
+			a.RTTms = p.RTTms
+		} else if p.Dialing && p.DialErr != "" {
+			a.Unreachable = p.DialErr
 		}
 		a.Seen = seen(p.LastSeen)
-		link(st.Key, p.Key, p.Connected)
+		link(st.Key, p.Key, p.Connected, p.RTTms)
 	}
 	for _, v := range net.Agents {
 		a := add(v.Origin)
@@ -261,7 +282,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 				pa.Hops = a.Hops + 1
 				pa.Via = v.Origin
 			}
-			link(v.Origin, p.Key, p.Up && v.Status != api.AgentStale)
+			link(v.Origin, p.Key, p.Up && v.Status != api.AgentStale, p.RTT)
 		}
 	}
 

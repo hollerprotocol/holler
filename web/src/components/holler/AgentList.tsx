@@ -46,7 +46,11 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
               </span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11.5px]">
-              {quietMinutes(a, now) !== undefined ? (
+              {a.unreachable ? (
+                <span className="font-medium text-orange" title={a.unreachable}>
+                  can't reach
+                </span>
+              ) : quietMinutes(a, now) !== undefined ? (
                 <span className="font-medium text-orange" title="Said it is working, but has done nothing through holler since">
                   no activity {quietMinutes(a, now)}m
                 </span>

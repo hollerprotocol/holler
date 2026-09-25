@@ -64,7 +64,11 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 		if peer.Alias != "" && name == "" {
 			name = peer.Alias
 		}
-		p.Peers = append(p.Peers, wire.PresencePeer{Key: peer.Key, Name: name, Up: n.Connected(peer.Key)})
+		pp := wire.PresencePeer{Key: peer.Key, Name: name, Up: n.Connected(peer.Key)}
+		if ci := n.ConnInfo(peer.Key); ci != nil && ci.RTT > 0 {
+			pp.RTT = max(1, ci.RTT.Milliseconds())
+		}
+		p.Peers = append(p.Peers, pp)
 	}
 	threads, err := n.st.Threads("", "")
 	if err != nil {

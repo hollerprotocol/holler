@@ -354,6 +354,9 @@ func (d *Daemon) peerView(p *store.Peer, threads []*store.Thread) api.PeerView {
 	}
 	if ci := n.ConnInfo(p.Key); ci != nil {
 		v.Connected, v.Via, v.Outbound, v.Since = true, ci.Via, ci.Outbound, ci.Since
+		if ci.RTT > 0 {
+			v.RTTms = max(1, ci.RTT.Milliseconds())
+		}
 	}
 	v.Dialing, v.DialErr = n.Dialing(p.Key)
 	v.Outbox, _ = n.Store().OutboxCount(p.Key)

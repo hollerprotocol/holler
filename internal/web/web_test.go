@@ -43,7 +43,9 @@ func network(now time.Time, bossState string) (*api.Status, []*store.Thread, *ap
 	later := wire.FormatTime(now.Add(-30 * time.Second))
 	st := &api.Status{Key: hostKey, Short: wire.ShortKey(hostKey), Name: "ops@laptop", Version: "0.2.0", Presence: true,
 		About: "holler-go 0.2.0, key fingerprint SHA256:x",
-		Peers: []api.PeerView{{Key: workerKey, Short: wire.ShortKey(workerKey), Name: "claude-code@worker", Connected: true, LastSeen: now}}}
+		Peers: []api.PeerView{
+			{Key: workerKey, Short: wire.ShortKey(workerKey), Name: "claude-code@worker", Connected: true, LastSeen: now, Via: "tailcat:tcAAA", RTTms: 42},
+		}}
 	local := []*store.Thread{{Peer: workerKey, Th: "thr_ops", Subject: "Status report", MyState: wire.StateOpen, TheirState: wire.StateWorking, Updated: now.Add(-2 * time.Minute)}}
 	net := &api.Network{
 		Self: api.AgentView{Presence: wire.Presence{Origin: hostKey, Name: "ops@laptop"}, Status: api.AgentSelf, Sharing: true},
@@ -508,6 +510,25 @@ func TestBlobs(t *testing.T) {
 	for _, c := range [][2]string{{"half", "in"}, {"nope", "in"}, {"png", "out"}, {"png", "sideways"}} {
 		if res := get(c[0], c[1]); res.StatusCode == 200 {
 			t.Errorf("%s/%s was served", c[0], c[1])
+		}
+	}
+}
+
+// How this host reaches its peers: transport and round trip, or why not.
+func TestReachability(t *testing.T) {
+	now := time.Now()
+	st, local, net := network(now, wire.StateOpen)
+	st.Peers = append(st.Peers, api.PeerView{Key: testKey(9), Short: wire.ShortKey(testKey(9)), Name: "gone@elsewhere", Dialing: true, DialErr: "tailcat dial: context deadline exceeded"})
+	s := buildState(st, local, net, nil, now)
+	if a := s.agent(workerKey); a.Transport != "tailcat" || a.RTTms != 42 || a.Unreachable != "" {
+		t.Errorf("worker: transport %q rtt %d unreachable %q", a.Transport, a.RTTms, a.Unreachable)
+	}
+	if a := s.agent(testKey(9)); a == nil || a.Unreachable == "" || a.Status != statusOffline {
+		t.Errorf("an unreachable peer: %+v", a)
+	}
+	for _, l := range s.Links {
+		if (l.A == hostKey || l.B == hostKey) && (l.A == workerKey || l.B == workerKey) && l.RTTms != 42 {
+			t.Errorf("host-worker link rtt %d", l.RTTms)
 		}
 	}
 }

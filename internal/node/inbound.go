@@ -41,7 +41,8 @@ func (n *Node) handleLine(c *Conn, line []byte) error {
 		c.send(wire.Pong{Envelope: wire.Envelope{T: wire.TPong, ID: n.ids.New(), TS: wire.Now(), Re: env.ID}})
 		return nil
 	case wire.TPong:
-		return nil // liveness is tracked by the reader
+		c.onPong(env.Re) // liveness itself is tracked by the reader
+		return nil
 	case wire.TBye:
 		return n.onBye(c, line)
 	case wire.TErr:
@@ -241,8 +242,23 @@ func (n *Node) onResume(c *Conn, line []byte) error {
 	c.startPump()
 	n.presenceOnConnect(c)
 	n.bump()
+	// A first round trip time, soon rather than after an idle interval,
+	// once the opening exchange (which a ping must not interleave) is over.
+	time.AfterFunc(firstPingDelay, func() {
+		select {
+		case <-c.closed:
+		default:
+			if c.RTT() == 0 {
+				c.ping()
+			}
+		}
+	})
 	return nil
 }
+
+// firstPingDelay is how long after resume a connection measures its first
+// round trip time.
+var firstPingDelay = 3 * time.Second
 
 func (n *Node) onBye(c *Conn, line []byte) error {
 	var b wire.Bye
