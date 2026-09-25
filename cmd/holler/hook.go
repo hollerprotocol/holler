@@ -36,6 +36,9 @@ func cmdHook(ctx context.Context, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	// A hook runs because the agent just did something: that is activity,
+	// whatever the hook finds.
+	c.Call(ctx, "touch", nil, nil)
 	if m := modelFromHook(input); m != "" {
 		c.Call(ctx, "set_model", api.ModelParams{Model: m}, nil)
 	}

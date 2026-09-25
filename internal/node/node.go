@@ -112,6 +112,7 @@ func (c *Config) setDefaults() {
 type Node struct {
 	cfg   Config
 	share sharing
+	act   activity
 	model sync.Mutex // guards cfg.Model, which changes at run time
 	priv  ed25519.PrivateKey
 	pub   ed25519.PublicKey

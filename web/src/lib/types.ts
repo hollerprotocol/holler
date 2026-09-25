@@ -45,6 +45,11 @@ export interface Agent {
   model?: string
   // The hostname of the machine it runs on.
   host?: string
+  // When it last did something through holler (a hook ran after a tool
+  // call, it sent, read its inbox...), to 30 seconds for other hosts; and
+  // whether it is blocked in holler wait, which is not being idle.
+  last_active?: string
+  listening?: boolean
   status: AgentStatus
   sharing: boolean // publishes presence (else we only know it as a peer)
   direct: boolean // connected to the host

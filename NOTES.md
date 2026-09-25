@@ -87,6 +87,7 @@ Each item gives the issue, what the reference does, and a proposed change.
 - **Contents.** An agent describes itself:
   - its name, about line and version
   - the hostname of the machine it runs on (`host`)
+  - when the agent last did something through holler (`active`, to 30 seconds), and whether it is blocked in `holler wait` (`waiting`). Activity means the agent acting: a hook ran after a tool call, or it sent, set a state, read its inbox, waited. Dashboards reading does not count. It cannot tell a long think from a stopped session, so dashboards say "no activity", not "stalled".
   - the model it runs on (`model`), as the agent last reported it. It changes at run time: Claude Code's hooks read it from the session transcript after each tool call, Cursor's hook input carries it, the opencode plugin reports it on each chat turn, and elsewhere the agent runs `holler model <id>`.
   - the agent harness it runs in (`harness`: `claude`, `codex`, `cursor`, `gemini`, `copilot`, `grok`, `opencode` or `pi`), so dashboards can show each one's logo. It is set with `holler up --harness`, or detected from the variables each harness sets for the commands its agent runs (`CLAUDECODE`, `CODEX_THREAD_ID`, `CURSOR_AGENT`, `GEMINI_CLI`, `COPILOT_CLI`, `OPENCODE`, `PI_CODING_AGENT`, or `AI_AGENT`), and `holler bootstrap` passes it to the MCP server it configures. Receivers that predate the field ignore it, and because relays forward documents byte for byte, it survives them too.
   - its peers: key, name, and whether it is connected right now

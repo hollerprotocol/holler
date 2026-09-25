@@ -1,6 +1,6 @@
 import { Shimmer } from "@/components/atoms/Shimmer"
 import GlideMenu from "@/components/primitives/GlideMenu"
-import { agentName, ago, splitName } from "@/lib/format"
+import { activityText, agentName, ago, quietMinutes, splitName } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent } from "@/lib/types"
 
@@ -46,7 +46,11 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
               </span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11.5px]">
-              {a.working ? (
+              {quietMinutes(a, now) !== undefined ? (
+                <span className="font-medium text-orange" title="Said it is working, but has done nothing through holler since">
+                  no activity {quietMinutes(a, now)}m
+                </span>
+              ) : a.working ? (
                 <span className="font-medium">
                   <Shimmer>working</Shimmer>
                 </span>
@@ -55,7 +59,9 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
               ) : (
                 <span className="text-ink-3">{dim ? "quiet" : a.active ? `${a.active} active` : "idle"}</span>
               )}
-              <span className="text-ink-3 tabular-nums">{a.status === "self" ? "" : ago(a.seen, now)}</span>
+              <span className="text-ink-3 tabular-nums" title={activityText(a, now) || undefined}>
+                {a.listening ? "listening" : a.last_active ? ago(a.last_active, now) : a.status === "self" ? "" : ago(a.seen, now)}
+              </span>
             </span>
           </button>
         )

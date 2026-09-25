@@ -46,6 +46,9 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 		Shares:  n.ShareWith(),
 		TS:      wire.Now(),
 	}
+	if last, waiting := n.Activity(); !last.IsZero() {
+		p.Active, p.Waiting = wire.FormatTime(last.Truncate(activityGrain)), waiting
+	}
 	peers, err := n.st.Peers()
 	if err != nil {
 		return nil, err

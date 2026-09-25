@@ -100,8 +100,36 @@ func decode[T any](params json.RawMessage) (T, error) {
 }
 
 // Call implements control.Handler.
+// agentCalls are the control calls an agent makes when it acts; dashboards
+// only read. A read that marks messages read (an agent consuming its inbox,
+// as hooks do) counts too; see touches.
+var agentCalls = map[string]bool{
+	"touch": true, "send": true, "state": true, "connect": true, "listen": true, "grant": true, "revoke": true,
+	"introduce": true, "bye": true, "private": true, "set_model": true, "set_share": true, "alias": true,
+}
+
+// touches reports whether a call is the agent acting.
+func touches(method string, params json.RawMessage) bool {
+	if agentCalls[method] {
+		return true
+	}
+	if method == "read" {
+		var p struct {
+			Mark bool `json:"mark"`
+		}
+		json.Unmarshal(params, &p)
+		return p.Mark
+	}
+	return false
+}
+
 func (d *Daemon) Call(ctx context.Context, method string, params json.RawMessage) (any, error) {
+	if touches(method, params) {
+		d.n.Touch()
+	}
 	switch method {
+	case "touch":
+		return map[string]bool{"ok": true}, nil
 	case "status":
 		return d.status()
 	case "mirrored":
@@ -277,6 +305,11 @@ func (d *Daemon) status() (*api.Status, error) {
 		return nil, err
 	}
 	unread, _ := st.Query(store.Filter{Inbox: true, UnreadOnly: true, Limit: 100000})
+	last, waiting := n.Activity()
+	var active *time.Time
+	if !last.IsZero() {
+		active = &last
+	}
 	outbox, _ := st.OutboxCount("")
 	pub, _ := wire.ParseKey(n.Key())
 	s := &api.Status{
@@ -287,6 +320,8 @@ func (d *Daemon) status() (*api.Status, error) {
 		Harness:     n.Harness(),
 		Model:       n.Model(),
 		ShareWith:   d.shareRefs(),
+		Waiting:     waiting,
+		Active:      active,
 		Host:        hostname(),
 		Fingerprint: wire.Fingerprint(pub),
 		Version:     version.String(),
@@ -527,6 +562,8 @@ func (d *Daemon) markRead(recs []store.Record) {
 }
 
 func (d *Daemon) wait(ctx context.Context, p api.WaitParams) (*api.ReadResult, error) {
+	done := d.n.Waiting()
+	defer done()
 	key := ""
 	var err error
 	if p.Peer != "" || p.Th != "" {

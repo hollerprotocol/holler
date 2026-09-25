@@ -67,3 +67,25 @@ export function agoText(iso: string | undefined, now = Date.now()): string {
   if (!a) return ""
   return a === "now" ? "just now" : `${a} ago`
 }
+
+/** How long, after saying it is working, an agent may do nothing through
+ *  holler before the dashboard points it out. */
+export const QUIET_AFTER_MIN = 10
+
+/** Minutes a working agent has done nothing, when that is worth showing.
+ *  It cannot tell a long think from a stuck session, so callers say "no
+ *  activity", never "stalled". */
+export function quietMinutes(a: Agent, now = Date.now()): number | undefined {
+  if (!a.working || a.listening || !a.last_active) return undefined
+  const t = Date.parse(a.last_active)
+  if (Number.isNaN(t)) return undefined
+  const m = Math.floor((now - t) / 60000)
+  return m >= QUIET_AFTER_MIN ? m : undefined
+}
+
+/** A short line about an agent's last activity. */
+export function activityText(a: Agent, now = Date.now()): string {
+  if (a.listening) return "waiting for a message"
+  if (!a.last_active) return ""
+  return `active ${agoText(a.last_active, now)}`
+}

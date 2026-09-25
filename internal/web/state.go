@@ -32,24 +32,28 @@ var statusRank = map[string]int{statusSelf: 0, statusConnected: 1, statusOnline:
 
 // Agent is one agent on the network.
 type Agent struct {
-	Key     string     `json:"key"`
-	Short   string     `json:"short"`
-	Name    string     `json:"name"`
-	About   string     `json:"about,omitempty"`
-	Version string     `json:"version,omitempty"`
-	Harness string     `json:"harness,omitempty"` // claude, codex, ...: declared, else guessed from the name
-	Model   string     `json:"model,omitempty"`   // the model it runs on, as it reports it
-	Host    string     `json:"host,omitempty"`    // the hostname of the machine it runs on
-	Status  string     `json:"status"`
-	Sharing bool       `json:"sharing"`
-	Direct  bool       `json:"direct"`
-	Via     string     `json:"via,omitempty"`
-	Hops    int        `json:"hops"`
-	Seen    *time.Time `json:"seen,omitempty"`
-	Threads int        `json:"threads"`
-	Active  int        `json:"active"`
-	Working bool       `json:"working"`
-	Waiting bool       `json:"waiting"`
+	Key     string `json:"key"`
+	Short   string `json:"short"`
+	Name    string `json:"name"`
+	About   string `json:"about,omitempty"`
+	Version string `json:"version,omitempty"`
+	Harness string `json:"harness,omitempty"` // claude, codex, ...: declared, else guessed from the name
+	Model   string `json:"model,omitempty"`   // the model it runs on, as it reports it
+	Host    string `json:"host,omitempty"`    // the hostname of the machine it runs on
+	// LastActive is when it last did something through holler (to 30
+	// seconds for other hosts); Listening says it is blocked in holler wait.
+	LastActive *time.Time `json:"last_active,omitempty"`
+	Listening  bool       `json:"listening,omitempty"`
+	Status     string     `json:"status"`
+	Sharing    bool       `json:"sharing"`
+	Direct     bool       `json:"direct"`
+	Via        string     `json:"via,omitempty"`
+	Hops       int        `json:"hops"`
+	Seen       *time.Time `json:"seen,omitempty"`
+	Threads    int        `json:"threads"`
+	Active     int        `json:"active"`
+	Working    bool       `json:"working"`
+	Waiting    bool       `json:"waiting"`
 }
 
 // Link is a connection between two agents, as either of them reports it.
@@ -191,6 +195,7 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 	me.Status, me.Sharing, me.Version, me.Hops, me.Seen = statusSelf, st.Presence, st.Version, 0, seen(now)
 	me.About = cmp.Or(realAbout(net.Self.About), realAbout(st.About))
 	me.Harness, me.Model = st.Harness, st.Model
+	me.LastActive, me.Listening = st.Active, st.Waiting
 	// A daemon older than the host field: the page is served from the same
 	// machine, so its hostname is this one.
 	me.Host = st.Host
@@ -230,6 +235,9 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrore
 		a.Harness = cmp.Or(harness.Normalize(v.Harness), a.Harness)
 		a.Model = cmp.Or(v.Model, a.Model)
 		a.Host = cmp.Or(v.Host, a.Host)
+		if at, err := wire.ParseTime(v.Active); err == nil {
+			a.LastActive, a.Listening = &at, v.Waiting
+		}
 		a.About = cmp.Or(realAbout(v.About), a.About)
 		if a.Status != statusConnected {
 			if v.Status == api.AgentStale {

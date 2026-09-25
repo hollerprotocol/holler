@@ -34,14 +34,18 @@ type PresenceMsg struct {
 // Presence is what an agent says about itself. It is signed by Origin over
 // the canonical JSON of the document without "sig", like a grant.
 type Presence struct {
-	Origin  string           `json:"origin"`
-	Name    string           `json:"name,omitempty"`
-	About   string           `json:"about,omitempty"`
-	Version string           `json:"version,omitempty"`
-	Harness string           `json:"harness,omitempty"` // the agent harness: claude, codex, cursor, ...
-	Model   string           `json:"model,omitempty"`   // the model the agent runs on, as it reports it
-	Host    string           `json:"host,omitempty"`    // the hostname of the machine it runs on
-	Shares  []string         `json:"shares,omitempty"`  // keys of the hosts it mirrors its conversations to
+	Origin  string   `json:"origin"`
+	Name    string   `json:"name,omitempty"`
+	About   string   `json:"about,omitempty"`
+	Version string   `json:"version,omitempty"`
+	Harness string   `json:"harness,omitempty"` // the agent harness: claude, codex, cursor, ...
+	Model   string   `json:"model,omitempty"`   // the model the agent runs on, as it reports it
+	Host    string   `json:"host,omitempty"`    // the hostname of the machine it runs on
+	Shares  []string `json:"shares,omitempty"`  // keys of the hosts it mirrors its conversations to
+	// Active is when the agent last did something through holler, to 30
+	// seconds; Waiting says it is blocked waiting for a message.
+	Active  string           `json:"active,omitempty"`
+	Waiting bool             `json:"waiting,omitempty"`
 	Seq     int64            `json:"seq"`
 	TS      string           `json:"ts"`
 	Peers   []PresencePeer   `json:"peers,omitempty"`

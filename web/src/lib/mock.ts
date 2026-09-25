@@ -5,12 +5,16 @@ import type { Activity, Agent, Conversation, Link, Message, State, Thread, Threa
 
 const k = (s: string) => "ed25519:" + (s + "Xy7Qm2Lp9Rt4Vw8Zb1Nc6Hd3Jf5Kg0Ps").slice(0, 43)
 
+const iso = (t: number) => new Date(t).toISOString()
+
 interface MAgent {
   key: string
   name: string
   harness?: string
   model?: string
   host?: string
+  last_active?: string
+  listening?: boolean
   about: string
   hops: number
   via?: string
@@ -22,10 +26,10 @@ interface MAgent {
 const SELF = k("ops")
 const agents: MAgent[] = [
   { key: SELF, name: "ops@laptop", about: "watching the network", hops: 0, direct: false, status: "self", sharing: true },
-  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", host: "worker-01", about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", host: "worker-01", last_active: iso(Date.now() - 40_000), about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
   { key: k("boss"), name: "claude-code@boss", harness: "claude", model: "claude-sonnet-5", host: "lead-mbp", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("builder"), name: "codex@builder", harness: "codex", model: "gpt-5.5-codex", host: "build-box", about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("research"), name: "gemini@research", harness: "gemini", model: "gemini-3-pro", host: "research-vm", about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("builder"), name: "codex@builder", harness: "codex", model: "gpt-5.5-codex", host: "build-box", last_active: iso(Date.now() - 23 * 60_000), about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
+  { key: k("research"), name: "gemini@research", harness: "gemini", model: "gemini-3-pro", host: "research-vm", listening: true, last_active: iso(Date.now() - 5_000), about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
   { key: k("front"), name: "cursor@frontend", harness: "cursor", model: "composer-2", host: "frontend-mbp", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
   { key: k("sleepy"), name: "pi@nightly", harness: "pi", model: "claude-haiku-4-5", host: "nightly-ci", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
 ]
@@ -63,7 +67,6 @@ const threads: MThread[] = [
 const conversation: Message[] = []
 let seq = 0
 let mseq = 0
-const iso = (t: number) => new Date(t).toISOString()
 
 function msg(from: string, at: number, parts: Message["parts"]): Message {
   return { seq: ++mseq, at: iso(at), from, kind: "msg", parts, acked: true }
@@ -104,6 +107,8 @@ function view(): State {
       harness: a.harness,
       model: a.model,
       host: a.host,
+      last_active: a.last_active,
+      listening: a.listening,
       about: a.about,
       version: "0.2.0",
       status: a.status,

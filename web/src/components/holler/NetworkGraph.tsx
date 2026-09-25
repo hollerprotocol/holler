@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { Shimmer } from "@/components/atoms/Shimmer"
-import { agentName, splitName } from "@/lib/format"
+import { agentName, splitName, quietMinutes } from "@/lib/format"
 import { agentColor } from "@/lib/avatar"
 import { getStore } from "@/lib/store"
 import type { Activity, Agent, State } from "@/lib/types"
@@ -187,6 +187,8 @@ const PULSE_COLOR: Partial<Record<Activity["kind"], string>> = {
 function statusLine(a: Agent): { text: string; tone: string; shimmer?: boolean } {
   if (a.status === "stale") return { text: "quiet", tone: "text-ink-3" }
   if (a.status === "offline") return { text: "offline", tone: "text-ink-3" }
+  const quiet = quietMinutes(a)
+  if (quiet !== undefined) return { text: `no activity ${quiet}m`, tone: "text-orange" }
   if (a.working) return { text: "working", tone: "", shimmer: true }
   if (a.waiting) return { text: "waiting", tone: "text-orange" }
   if (a.active) return { text: `${a.active} active`, tone: "text-ink-2" }

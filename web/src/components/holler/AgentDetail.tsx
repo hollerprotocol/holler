@@ -1,4 +1,4 @@
-import { agentName, agoText, splitName } from "@/lib/format"
+import { agentName, agoText, quietMinutes, splitName } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent, State, Thread } from "@/lib/types"
 
@@ -112,6 +112,19 @@ export function AgentDetail({
               </span>
             ) : (
               "A known peer"
+            )}
+          </Fact>
+          <Fact label="Last active">
+            {agent.listening ? (
+              "Waiting for a message (holler wait)"
+            ) : !agent.last_active ? (
+              <span className="text-ink-3">Not reported</span>
+            ) : quietMinutes(agent, now) !== undefined ? (
+              <span className="text-orange">
+                No activity for {quietMinutes(agent, now)}m while working. It may be thinking at length, or its session may have stopped.
+              </span>
+            ) : (
+              agoText(agent.last_active, now)
             )}
           </Fact>
           <Fact label="Last heard">{agent.status === "self" ? "now" : agent.seen ? agoText(agent.seen, now) : "—"}</Fact>

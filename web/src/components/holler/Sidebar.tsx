@@ -23,7 +23,7 @@ import {
 import { Shimmer } from "@/components/atoms/Shimmer"
 import GlideMenu from "@/components/primitives/GlideMenu"
 import { useTheme } from "@/components/theme-provider"
-import { agentName, splitName } from "@/lib/format"
+import { agentName, quietMinutes, splitName } from "@/lib/format"
 import { harnessName } from "@/lib/harness"
 import type { View } from "@/lib/route"
 import { setSound, useSound } from "@/lib/sound"
@@ -352,7 +352,13 @@ export function Sidebar({
                       {host && <span className="truncate text-[12px] text-ink-3">@{host}</span>}
                     </span>
                     <span className="sidebar-copy ml-1 shrink-0 text-[11px] font-medium">
-                      {a.working ? <Shimmer>working</Shimmer> : a.waiting ? <span className="text-orange">waiting</span> : null}
+                      {quietMinutes(a) !== undefined ? (
+                        <span className="text-orange">quiet {quietMinutes(a)}m</span>
+                      ) : a.working ? (
+                        <Shimmer>working</Shimmer>
+                      ) : a.waiting ? (
+                        <span className="text-orange">waiting</span>
+                      ) : null}
                     </span>
                   </button>
                 )
