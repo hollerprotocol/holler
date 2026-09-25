@@ -17,14 +17,14 @@ import (
 	"github.com/hollerprotocol/holler/internal/api"
 	"github.com/hollerprotocol/holler/internal/daemon"
 	"github.com/hollerprotocol/holler/internal/mcp"
-	"github.com/hollerprotocol/holler/internal/node"
 	"github.com/hollerprotocol/holler/internal/store"
 	"github.com/hollerprotocol/holler/internal/transport"
+	"github.com/hollerprotocol/holler/internal/version"
 	"github.com/hollerprotocol/holler/wire"
 )
 
 func cmdVersion(ctx context.Context, args []string) error {
-	fmt.Printf("holler %s (protocol v%d)\n", node.Version, wire.Version)
+	fmt.Printf("holler %s (protocol v%d)\n", version.String(), wire.Version)
 	return nil
 }
 

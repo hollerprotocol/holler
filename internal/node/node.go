@@ -21,9 +21,6 @@ import (
 	"github.com/hollerprotocol/holler/wire"
 )
 
-// Version is the implementation version, reported in about and status.
-const Version = "0.1.0"
-
 // Config configures a Node. Zero values get the defaults from the spec.
 type Config struct {
 	// Home is the state directory (~/.holler by default in the CLI).

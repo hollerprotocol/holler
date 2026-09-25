@@ -20,6 +20,7 @@ import (
 	"github.com/hollerprotocol/holler/internal/node"
 	"github.com/hollerprotocol/holler/internal/store"
 	"github.com/hollerprotocol/holler/internal/transport"
+	"github.com/hollerprotocol/holler/internal/version"
 	"github.com/hollerprotocol/holler/wire"
 )
 
@@ -67,7 +68,7 @@ func Run(cfg Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	d := &Daemon{n: n, cfg: cfg, started: time.Now(), stop: stop}
-	logger.Printf("holler daemon %s up as %s (%s), home %s", node.Version, n.Name(), n.Key(), cfg.Home)
+	logger.Printf("holler daemon %s up as %s (%s), home %s", version.String(), n.Name(), n.Key(), cfg.Home)
 	err = control.Serve(ctx, cfg.Home, d)
 	logger.Printf("holler daemon stopping")
 	return err
@@ -236,7 +237,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		Name:        n.Name(),
 		About:       d.cfg.About,
 		Fingerprint: wire.Fingerprint(pub),
-		Version:     node.Version,
+		Version:     version.String(),
 		Home:        d.cfg.Home,
 		PID:         os.Getpid(),
 		Started:     d.started,

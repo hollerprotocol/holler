@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hollerprotocol/holler/internal/store"
+	"github.com/hollerprotocol/holler/internal/version"
 	"github.com/hollerprotocol/holler/wire"
 )
 
@@ -546,5 +547,5 @@ func (n *Node) about() string {
 	if n.cfg.About != "" {
 		return n.cfg.About
 	}
-	return fmt.Sprintf("holler-go %s, key fingerprint %s", Version, wire.Fingerprint(n.pub))
+	return fmt.Sprintf("holler-go %s, key fingerprint %s", version.String(), wire.Fingerprint(n.pub))
 }

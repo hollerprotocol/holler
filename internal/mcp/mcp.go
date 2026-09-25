@@ -22,8 +22,8 @@ import (
 
 	"github.com/hollerprotocol/holler/internal/api"
 	"github.com/hollerprotocol/holler/internal/control"
-	"github.com/hollerprotocol/holler/internal/node"
 	"github.com/hollerprotocol/holler/internal/render"
+	"github.com/hollerprotocol/holler/internal/version"
 	"github.com/hollerprotocol/holler/wire"
 )
 
@@ -131,10 +131,10 @@ func (s *Server) initialize(params json.RawMessage) map[string]any {
 		ClientInfo      map[string]any `json:"clientInfo"`
 	}
 	json.Unmarshal(params, &p)
-	version := protocolVersions[1]
+	proto := protocolVersions[1]
 	for _, v := range protocolVersions {
 		if v == p.ProtocolVersion {
-			version = v
+			proto = v
 		}
 	}
 	exp, _ := p.Capabilities["experimental"].(map[string]any)
@@ -144,12 +144,12 @@ func (s *Server) initialize(params json.RawMessage) map[string]any {
 		s.startPush()
 	}
 	return map[string]any{
-		"protocolVersion": version,
+		"protocolVersion": proto,
 		"capabilities": map[string]any{
 			"tools":        map[string]any{},
 			"experimental": map[string]any{"claude/channel": map[string]any{}},
 		},
-		"serverInfo":   map[string]any{"name": "holler", "version": node.Version},
+		"serverInfo":   map[string]any{"name": "holler", "version": version.String()},
 		"instructions": instructions,
 	}
 }
