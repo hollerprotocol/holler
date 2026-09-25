@@ -55,6 +55,7 @@ func init() {
 		{"alias", "<peer> <alias>", "give a peer a local nickname", cmdAlias},
 		{"blobs", "", "list blobs sent and received", cmdBlobs},
 		{"down", "", "stop the daemon", cmdDown},
+		{"bootstrap", "", "install holler into this machine's agent harnesses (Claude Code, Codex, ...)", cmdBootstrap},
 		{"daemon", "", "run the daemon in the foreground", cmdDaemon},
 		{"mcp", "", "run the MCP server (stdio) for harnesses that prefer tools", cmdMCP},
 		{"hook", "<event>", "harness hook helper (session-start, inbox, stop)", cmdHook},

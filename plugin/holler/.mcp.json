@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "holler": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/holler",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

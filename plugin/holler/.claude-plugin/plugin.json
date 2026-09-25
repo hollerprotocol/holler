@@ -15,13 +15,5 @@
     "delegation",
     "mcp"
   ],
-  "mcpServers": {
-    "holler": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/bin/holler",
-      "args": [
-        "mcp"
-      ]
-    }
-  },
   "hooks": "./com.anthropic.claude-code/hooks.json"
 }
