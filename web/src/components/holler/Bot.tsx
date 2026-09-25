@@ -7,9 +7,23 @@ import { orbBackground } from "@/lib/orb"
 
 const BotAvatar = lazy(() => import("bot-avatars").then((m) => ({ default: m.BotAvatar })))
 
-// The canvas keeps headroom for hops, so the body fills only part of it: draw
-// it larger than its layout box, overflowing evenly, to match an orb's mass.
-const SCALE = 1.3
+// The canvas keeps headroom for hops; drawn at a little over its layout box,
+// overflowing evenly, the body sits at a quiet size beside labels.
+const SCALE = 1.05
+
+// The dashboard's look, chosen in a side-by-side comparison of the library's
+// props: matte "smooth" shading, a little desaturated, soft shadow, and
+// slower, rarer, lower hops, so a busy network stays calm.
+const LOOK = {
+  shading: "smooth",
+  saturation: 0.82,
+  shadow: 0.25,
+  highlight: 1.15,
+  depth: 0.55,
+  speed: 0.8,
+  jumpHeight: 16,
+  jumpSpin: 0.5,
+} as const
 
 export function Bot({ agentKey, size, working = false, dim = false }: { agentKey: string; size: number; working?: boolean; dim?: boolean }) {
   const b = botFor(agentKey)
@@ -28,9 +42,11 @@ export function Bot({ agentKey, size, working = false, dim = false }: { agentKey
           seed={b.seed}
           size={drawn}
           state={dim ? "sleeping" : working ? "working" : "default"}
+          {...LOOK}
+          brightness={b.brightness}
           interactive={size >= 40}
-          turn={size >= 40 ? 1 : 0.4}
-          jumpEvery={size >= 40 ? 8 : 0}
+          turn={size >= 40 ? 0.7 : 0}
+          jumpEvery={size >= 40 ? 16 : 0}
           style={{ position: "absolute", left: -bleed, top: -bleed, maxWidth: "none" }}
         />
       </Suspense>
