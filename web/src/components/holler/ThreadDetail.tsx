@@ -9,6 +9,7 @@ import { getStore, useNow } from "@/lib/store"
 import type { Agent, Conversation, Message, Part, State, Thread } from "@/lib/types"
 
 import { AgentChip, StatePill } from "./chips"
+import { CopyButton } from "./Copy"
 import { Orb } from "./Orb"
 
 function size(n?: number): string {
@@ -140,6 +141,8 @@ function Header({ thread, agents }: { thread: Thread; agents: Map<string, Agent>
         )}
       </p>
       <h2 className="mt-1 pr-10 text-[21px] leading-tight font-semibold tracking-[-0.02em] text-balance text-ink">{thread.subject || thread.th}</h2>
+      {/* The id every command takes (holler send --thread, state, private). */}
+      <CopyButton text={thread.th} label={thread.th} className="mt-2 h-6 px-2 font-mono text-[11px]" />
       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <span className="inline-flex items-center gap-1">
           <AgentChip agentKey={thread.a} agent={agents.get(thread.a)} />
