@@ -2,6 +2,12 @@
 
 Release versions of this implementation. The protocol version (`v` in `hello`) is separate and is still 0.
 
+## [0.1.1] - 2026-09-25
+
+### Fixed
+
+- The daemon failed to start ("bind: invalid argument") when the holler home was deep enough to push the control socket path past the Unix limit, as happens in sandbox scratch directories. Such homes now put the socket in the user's private runtime directory.
+
 ## [0.1.0] - 2026-09-25
 
 First release: a reference implementation of the holler spec, draft 1.
