@@ -1,0 +1,4 @@
+/bin/
+/plugin/holler/libexec/holler-*
+__pycache__/
+*.pyc

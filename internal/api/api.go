@@ -1,0 +1,220 @@
+// Package api defines the types exchanged between the holler daemon and its
+// local clients over the control socket.
+package api
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/hollerprotocol/holler/internal/store"
+	"github.com/hollerprotocol/holler/wire"
+)
+
+// Status describes the running daemon.
+type Status struct {
+	Key         string     `json:"key"`
+	Short       string     `json:"short"`
+	Name        string     `json:"name"`
+	About       string     `json:"about"`
+	Fingerprint string     `json:"fingerprint"`
+	Version     string     `json:"version"`
+	Home        string     `json:"home"`
+	PID         int        `json:"pid"`
+	Started     time.Time  `json:"started"`
+	Addresses   []string   `json:"addresses"`
+	Tailcat     string     `json:"tailcat,omitempty"` // bare tc... address to share
+	TailcatErr  string     `json:"tailcat_error,omitempty"`
+	TailcatWant bool       `json:"tailcat_enabled"`
+	Serve       []string   `json:"serve,omitempty"`
+	Accept      string     `json:"accept"`
+	Peers       []PeerView `json:"peers"`
+	Unread      int        `json:"unread"`
+	Outbox      int        `json:"outbox"`
+}
+
+// ShareAddress is the address to hand to another agent: the tailcat
+// address when there is one, else the first listen address.
+func (s *Status) ShareAddress() string {
+	if s.Tailcat != "" {
+		return s.Tailcat
+	}
+	if len(s.Addresses) > 0 {
+		return s.Addresses[0]
+	}
+	return ""
+}
+
+// PeerView is a peer as the daemon sees it right now.
+type PeerView struct {
+	Key         string       `json:"key"`
+	Short       string       `json:"short"`
+	Name        string       `json:"name,omitempty"`
+	Alias       string       `json:"alias,omitempty"`
+	About       string       `json:"about,omitempty"`
+	Caps        []string     `json:"caps,omitempty"`    // message families from its hello
+	Granted     []string     `json:"granted,omitempty"` // capabilities it holds on us
+	Connected   bool         `json:"connected"`
+	Via         string       `json:"via,omitempty"`
+	Outbound    bool         `json:"outbound,omitempty"`
+	Since       time.Time    `json:"since,omitzero"`
+	Dialing     bool         `json:"dialing,omitempty"`
+	DialErr     string       `json:"dial_error,omitempty"`
+	Parked      bool         `json:"parked,omitempty"`
+	Outbox      int          `json:"outbox"`
+	OpenThreads int          `json:"open_threads"`
+	Unread      int          `json:"unread"`
+	LastSeen    time.Time    `json:"last_seen,omitzero"`
+	Addrs       []store.Addr `json:"addrs,omitempty"`
+}
+
+// Label is how a peer is shown to people: alias, else name, else short key.
+func (p PeerView) Label() string {
+	switch {
+	case p.Alias != "":
+		return p.Alias
+	case p.Name != "":
+		return p.Name
+	}
+	return p.Short
+}
+
+// Event is one log record as clients see it. Msg is the wire object for
+// sent and received messages; Meta holds local annotations (capability
+// checks, blob paths, connection details for sys events).
+type Event struct {
+	Seq      int64               `json:"seq"`
+	At       time.Time           `json:"at"`
+	Dir      string              `json:"dir"`  // in, out or sys
+	Type     string              `json:"type"` // msg, state, grant, introduce, err, blob, bye, connected, ...
+	Peer     string              `json:"peer"`
+	PeerName string              `json:"peer_name,omitempty"`
+	Th       string              `json:"th,omitempty"`
+	Subject  string              `json:"subject,omitempty"` // the thread's subject
+	ID       string              `json:"id,omitempty"`
+	Acked    bool                `json:"acked,omitempty"`
+	Msg      json.RawMessage     `json:"msg,omitempty"`
+	Meta     map[string]any      `json:"meta,omitempty"`
+	Blobs    map[string]BlobInfo `json:"blobs,omitempty"`
+}
+
+// BlobInfo is the local state of a blob referenced by a message.
+type BlobInfo struct {
+	Name     string `json:"name,omitempty"`
+	Mime     string `json:"mime,omitempty"`
+	Size     int64  `json:"size"`
+	Received int64  `json:"received"`
+	Status   string `json:"status"`
+	Path     string `json:"path,omitempty"`
+}
+
+// Parts decodes the message parts of a msg event.
+func (e *Event) Parts() []wire.Part {
+	var m wire.Msg
+	json.Unmarshal(e.Msg, &m)
+	return m.Parts
+}
+
+// ConnectParams for "connect".
+type ConnectParams struct {
+	Address   string `json:"address"`
+	TimeoutMS int    `json:"timeout_ms,omitempty"`
+}
+
+// ConnectResult for "connect".
+type ConnectResult struct {
+	Peer PeerView `json:"peer"`
+}
+
+// SendParams for "send". Peer may be a key, name, alias, key prefix or an
+// address (which is connected to first). With Th set, Peer may be empty.
+type SendParams struct {
+	Peer    string      `json:"peer,omitempty"`
+	Th      string      `json:"th,omitempty"`
+	Subject string      `json:"subject,omitempty"`
+	Re      string      `json:"re,omitempty"`
+	Parts   []wire.Part `json:"parts,omitempty"`
+	Files   []string    `json:"files,omitempty"` // absolute paths
+	WaitAck int         `json:"wait_ack_ms,omitempty"`
+}
+
+// SendResult for "send" and "state".
+type SendResult struct {
+	ID        string `json:"id"`
+	Th        string `json:"th"`
+	Peer      string `json:"peer"`
+	PeerName  string `json:"peer_name,omitempty"`
+	NewThread bool   `json:"new_thread,omitempty"`
+	Connected bool   `json:"connected"`
+	Acked     bool   `json:"acked"`
+}
+
+// StateParams for "state".
+type StateParams struct {
+	Peer  string `json:"peer,omitempty"`
+	Th    string `json:"th"`
+	State string `json:"state"`
+	Note  string `json:"note,omitempty"`
+}
+
+// ReadParams for "read": history (Inbox false) or unread inbox (Inbox and
+// Unread true).
+type ReadParams struct {
+	Peer   string `json:"peer,omitempty"`
+	Th     string `json:"th,omitempty"`
+	Inbox  bool   `json:"inbox,omitempty"`  // only received messages and notable local events
+	Unread bool   `json:"unread,omitempty"` // only records not yet marked read
+	Since  int64  `json:"since,omitempty"`  // after this seq
+	Limit  int    `json:"limit,omitempty"`
+	Mark   bool   `json:"mark,omitempty"` // mark returned records read
+}
+
+// ReadResult for "read" and "wait".
+type ReadResult struct {
+	Events   []Event       `json:"events"`
+	Cursor   int64         `json:"cursor"`
+	TimedOut bool          `json:"timed_out,omitempty"`
+	Thread   *store.Thread `json:"thread,omitempty"`
+}
+
+// WaitParams for "wait": block until unread inbox events arrive (optionally
+// in one thread or from one peer), or until the thread's remote state is
+// one of States.
+type WaitParams struct {
+	Peer      string   `json:"peer,omitempty"`
+	Th        string   `json:"th,omitempty"`
+	States    []string `json:"states,omitempty"`
+	TimeoutMS int      `json:"timeout_ms,omitempty"`
+}
+
+// SubscribeParams for the "subscribe" stream. Since nil means "from now".
+type SubscribeParams struct {
+	Peer  string `json:"peer,omitempty"`
+	Th    string `json:"th,omitempty"`
+	Since *int64 `json:"since,omitempty"`
+	Inbox bool   `json:"inbox,omitempty"`
+	Mark  bool   `json:"mark,omitempty"`
+}
+
+// GrantParams for "grant".
+type GrantParams struct {
+	Peer string   `json:"peer"`
+	Caps []string `json:"caps"`
+	TTL  string   `json:"ttl,omitempty"` // Go duration, default 1h
+}
+
+// IntroduceParams for "introduce".
+type IntroduceParams struct {
+	To   string   `json:"to"`
+	Peer string   `json:"peer"`
+	Caps []string `json:"caps,omitempty"`
+	TTL  string   `json:"ttl,omitempty"`
+	Th   string   `json:"th,omitempty"`
+}
+
+// PeerParams names a peer (bye, alias, threads...).
+type PeerParams struct {
+	Peer   string `json:"peer,omitempty"`
+	Reason string `json:"reason,omitempty"`
+	Alias  string `json:"alias,omitempty"`
+	Hash   string `json:"hash,omitempty"`
+}

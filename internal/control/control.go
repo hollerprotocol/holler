@@ -1,0 +1,238 @@
+// Package control is the local API between the holler daemon and its
+// clients (the CLI, the MCP server, harness hooks): newline-delimited JSON
+// over a Unix socket that only the owning user can open.
+//
+// A request is one line, {"method": "...", "params": {...}}. A plain call
+// gets one reply line, {"result": ...} or {"error": "..."}. A streaming call
+// gets {"event": ...} lines until either side closes.
+package control
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+// SocketName is the control socket's file name inside the holler home.
+const SocketName = "holler.sock"
+
+// Request is one call.
+type Request struct {
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params,omitempty"`
+}
+
+// Reply is a call's answer, or one event of a stream.
+type Reply struct {
+	Result json.RawMessage `json:"result,omitempty"`
+	Event  json.RawMessage `json:"event,omitempty"`
+	Error  string          `json:"error,omitempty"`
+}
+
+// Handler serves calls. Stream methods write events with emit until ctx is
+// done or they return.
+type Handler interface {
+	Call(ctx context.Context, method string, params json.RawMessage) (any, error)
+	Stream(ctx context.Context, method string, params json.RawMessage, emit func(any) error) (bool, error)
+}
+
+// Serve accepts control connections on the socket in home until ctx ends.
+func Serve(ctx context.Context, home string, h Handler) error {
+	path := filepath.Join(home, SocketName)
+	if c, err := net.DialTimeout("unix", path, time.Second); err == nil {
+		c.Close()
+		return fmt.Errorf("%s: a daemon is already running", path)
+	}
+	os.Remove(path)
+	old := umask(0o077)
+	ln, err := net.Listen("unix", path)
+	umask(old)
+	if err != nil {
+		return err
+	}
+	os.Chmod(path, 0o600)
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			return err
+		}
+		go serveOne(ctx, c, h)
+	}
+}
+
+func serveOne(ctx context.Context, c net.Conn, h Handler) {
+	defer c.Close()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	sc := bufio.NewScanner(c)
+	sc.Buffer(make([]byte, 64<<10), 64<<20)
+	if !sc.Scan() {
+		return
+	}
+	var req Request
+	enc := json.NewEncoder(c)
+	enc.SetEscapeHTML(false)
+	if err := json.Unmarshal(sc.Bytes(), &req); err != nil {
+		enc.Encode(Reply{Error: "bad request: " + err.Error()})
+		return
+	}
+	// A stream ends when the client hangs up.
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			if _, err := c.Read(buf); err != nil {
+				cancel()
+				return
+			}
+		}
+	}()
+	emit := func(ev any) error {
+		b, err := json.Marshal(ev)
+		if err != nil {
+			return err
+		}
+		return enc.Encode(Reply{Event: b})
+	}
+	if ok, err := h.Stream(ctx, req.Method, req.Params, emit); ok {
+		if err != nil && ctx.Err() == nil {
+			enc.Encode(Reply{Error: err.Error()})
+		}
+		return
+	}
+	res, err := h.Call(ctx, req.Method, req.Params)
+	if err != nil {
+		enc.Encode(Reply{Error: err.Error()})
+		return
+	}
+	b, err := json.Marshal(res)
+	if err != nil {
+		enc.Encode(Reply{Error: err.Error()})
+		return
+	}
+	enc.Encode(Reply{Result: b})
+}
+
+// ErrNoDaemon means nothing is listening on the control socket.
+var ErrNoDaemon = errors.New("holler daemon is not running")
+
+// Client calls a daemon.
+type Client struct {
+	Home string
+}
+
+func (c *Client) dial() (net.Conn, error) {
+	conn, err := net.DialTimeout("unix", filepath.Join(c.Home, SocketName), 2*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("%w (%v)", ErrNoDaemon, err)
+	}
+	return conn, nil
+}
+
+// Running reports whether a daemon answers on the socket.
+func (c *Client) Running() bool {
+	conn, err := c.dial()
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func (c *Client) start(ctx context.Context, method string, params any) (net.Conn, *bufio.Scanner, error) {
+	conn, err := c.dial()
+	if err != nil {
+		return nil, nil, err
+	}
+	p, err := json.Marshal(params)
+	if err != nil {
+		conn.Close()
+		return nil, nil, err
+	}
+	req, _ := json.Marshal(Request{Method: method, Params: p})
+	if _, err := conn.Write(append(req, '\n')); err != nil {
+		conn.Close()
+		return nil, nil, err
+	}
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+	sc := bufio.NewScanner(conn)
+	sc.Buffer(make([]byte, 64<<10), 64<<20)
+	return conn, sc, nil
+}
+
+// Call makes one call and decodes the result into out (if non-nil).
+func (c *Client) Call(ctx context.Context, method string, params, out any) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	conn, sc, err := c.start(ctx, method, params)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if !sc.Scan() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := sc.Err(); err != nil {
+			return err
+		}
+		return errors.New("daemon closed the connection")
+	}
+	var r Reply
+	if err := json.Unmarshal(sc.Bytes(), &r); err != nil {
+		return err
+	}
+	if r.Error != "" {
+		return errors.New(r.Error)
+	}
+	if out != nil && len(r.Result) > 0 {
+		return json.Unmarshal(r.Result, out)
+	}
+	return nil
+}
+
+// Stream makes a streaming call, passing each event to fn until fn returns
+// an error, ctx ends or the daemon ends the stream.
+func (c *Client) Stream(ctx context.Context, method string, params any, fn func(json.RawMessage) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	conn, sc, err := c.start(ctx, method, params)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	for sc.Scan() {
+		var r Reply
+		if err := json.Unmarshal(sc.Bytes(), &r); err != nil {
+			return err
+		}
+		if r.Error != "" {
+			return errors.New(r.Error)
+		}
+		if err := fn(r.Event); err != nil {
+			return err
+		}
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err := sc.Err(); err != nil {
+		return err
+	}
+	return errors.New("daemon ended the stream")
+}
