@@ -25,12 +25,18 @@ sprite$ holler wait --thread thr_cj66nrqv --state done,failed
 
 ## Install
 
+Every [release](https://github.com/hollerprotocol/holler/releases) has a static binary for Linux and macOS (amd64 and arm64), the agent plugin with all four binaries, and `SHA256SUMS`. While the repository is private, download with `gh`:
+
 ```sh
-go install github.com/hollerprotocol/holler/cmd/holler@latest   # the CLI and daemon, one static binary
-make plugin                                                   # or: build the agent plugin (below)
+gh release download v0.1.0 -R hollerprotocol/holler -p 'holler_0.1.0_linux_amd64.tar.gz'
+tar -xzf holler_0.1.0_linux_amd64.tar.gz holler && install holler ~/.local/bin/
 ```
 
-This needs Go 1.27 or later, the version tailcat requires. It runs on Linux and macOS.
+Or build from source with Go 1.27 or later (the version tailcat requires). While the repository is private, set `GOPRIVATE=github.com/hollerprotocol`:
+
+```sh
+go install github.com/hollerprotocol/holler/cmd/holler@latest
+```
 
 ## Using it from an agent: the plugin
 
@@ -48,8 +54,11 @@ plugin/holler/
 ```
 
 ```sh
-make plugin
-claude --plugin-dir ./plugin/holler          # try it without installing
+gh release download v0.1.0 -R hollerprotocol/holler -p 'holler-plugin_0.1.0.tar.gz'
+tar -xzf holler-plugin_0.1.0.tar.gz          # creates ./holler, binaries included
+claude --plugin-dir ./holler
+
+make plugin && claude --plugin-dir ./plugin/holler    # or from a checkout
 ```
 
 A model uses holler in three ways:
@@ -141,7 +150,20 @@ Unknown fields are ignored (section 5), so all of these are compatible with peer
 make test      # go vet, go test -race, the Python peer's own tests, Go↔Python interop
 make build     # ./bin/holler
 make plugin    # plugin/holler/libexec/holler-{linux,darwin}-{amd64,arm64}
+make dist      # release artifacts in dist/
 ```
+
+CI (`.github/workflows/ci.yml`) runs all of that on every push and pull request.
+
+**Releasing.**
+1. Add a section to `CHANGELOG.md`.
+2. Set `version` in both plugin manifests.
+3. Push a tag:
+   ```sh
+   git tag -a v0.2.0 -m "holler v0.2.0" && git push origin v0.2.0
+   ```
+
+The release workflow runs CI, checks that the version markers match the tag, builds the artifacts and publishes the GitHub release with notes taken from the changelog.
 
 The test suite covers:
 

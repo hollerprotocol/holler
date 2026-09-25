@@ -21,5 +21,6 @@ for p in $PATH; do
   fi
 done
 echo "holler: this plugin has no build for $os-$arch." >&2
-echo "Install one with: go install github.com/hollerprotocol/holler/cmd/holler@latest" >&2
+echo "Use the plugin bundle from a release (holler-plugin_<version>.tar.gz), put a holler" >&2
+echo "binary from a release on PATH, or: go install github.com/hollerprotocol/holler/cmd/holler@latest" >&2
 exit 127

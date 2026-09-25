@@ -1,9 +1,9 @@
-VERSION   := 0.1.0
+VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//')
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 LDFLAGS   := -s -w
 PLUGIN    := plugin/holler
 
-.PHONY: build test test-go test-python interop plugin plugin-local clean
+.PHONY: build test test-go test-python interop dist plugin plugin-local clean
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/holler ./cmd/holler
@@ -19,6 +19,11 @@ test-python:
 
 interop: build
 	cd python && HOLLER_BIN=$(CURDIR)/bin/holler python3 -m unittest -v interop_test
+
+# Release artifacts in dist/: per-platform archives, the plugin bundle and
+# SHA256SUMS. Tagging vX.Y.Z runs the same script in CI and publishes them.
+dist:
+	scripts/dist.sh $(VERSION)
 
 # The agent plugin, with binaries for every supported platform.
 plugin:
@@ -36,4 +41,4 @@ plugin-local:
 		-o $(PLUGIN)/libexec/holler-$$(go env GOOS)-$$(go env GOARCH) ./cmd/holler
 
 clean:
-	rm -rf bin $(PLUGIN)/libexec/holler-*
+	rm -rf bin dist $(PLUGIN)/libexec/holler-*
