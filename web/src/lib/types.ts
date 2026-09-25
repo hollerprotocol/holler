@@ -133,7 +133,8 @@ export type Part =
   | { type: "text"; text: string }
   | { type: "code"; text: string; lang?: string }
   | { type: "data"; data: unknown }
-  | { type: "blob"; name?: string; mime?: string; size?: number; status?: string }
+  // url: the file itself (/api/blob), when this host has it
+  | { type: "blob"; name?: string; mime?: string; size?: number; status?: string; url?: string }
 
 export interface Message {
   seq: number

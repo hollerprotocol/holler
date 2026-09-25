@@ -1,4 +1,4 @@
-import { Share2 } from "lucide-react"
+import { Download, Share2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { StreamText } from "@/components/atoms/StreamText"
@@ -32,9 +32,16 @@ function PartView({ p, fresh }: { p: Part; fresh: boolean }) {
       return <Code text={p.text} lang={p.lang} />
     case "data":
       return <Code text={JSON.stringify(p.data, null, 2)} lang="json" name="data.json" />
-    case "blob":
+    case "blob": {
+      const image = !!p.url && IMAGE_TYPES.has((p.mime ?? "").split(";")[0].trim().toLowerCase())
       return (
-        <div className="my-2 flex items-center gap-3 rounded-card bg-surface px-3 py-2.5 shadow-card">
+        <div className="my-2 overflow-hidden rounded-card bg-surface shadow-card">
+          {image && (
+            <a href={p.url} target="_blank" rel="noreferrer" className="block border-b border-line bg-field" title={`Open ${p.name ?? "image"}`}>
+              <img src={p.url} alt={p.name ?? "image"} loading="lazy" className="mx-auto block max-h-80 w-auto max-w-full object-contain" />
+            </a>
+          )}
+          <div className="flex items-center gap-3 px-3 py-2.5">
           <span className="flex size-8 items-center justify-center rounded-[8px] bg-field text-ink-2 shadow-hairline">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /></svg>
           </span>
@@ -42,11 +49,27 @@ function PartView({ p, fresh }: { p: Part; fresh: boolean }) {
             <span className="block truncate font-mono text-[12.5px] text-ink">{p.name || "file"}</span>
             <span className="text-[11.5px] text-ink-3">{[p.mime, size(p.size)].filter(Boolean).join(" · ")}</span>
           </span>
-          {p.status && <span className="rounded-full bg-field px-2 py-0.5 text-[11px] font-medium text-ink-2 shadow-hairline">{p.status}</span>}
+          {p.url ? (
+            <a
+              href={p.url}
+              download={p.name || true}
+              data-sound="select"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-field px-2.5 py-1 text-[11.5px] font-medium text-ink-2 shadow-hairline transition-colors hover:text-ink"
+            >
+              <Download size={12} /> Download
+            </a>
+          ) : (
+            p.status && <span className="rounded-full bg-field px-2 py-0.5 text-[11px] font-medium text-ink-2 shadow-hairline">{p.status}</span>
+          )}
+          </div>
         </div>
       )
+    }
   }
 }
+
+// Images the server shows inline (internal/web: inlineImages).
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"])
 
 function Bubble({ m, mine, agent, fresh }: { m: Message; mine: boolean; agent?: Agent; fresh: boolean }) {
   const who = agentName(agent, m.from.slice(8, 18))

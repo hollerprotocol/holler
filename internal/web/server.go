@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -253,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/activity", s.handleActivity)
 	mux.HandleFunc("GET /api/thread", s.handleThread)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
+	mux.HandleFunc("GET /api/blob", s.handleBlob)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusNotFound, "no such API call")
 	})
@@ -492,4 +495,62 @@ func sleep(ctx context.Context, d time.Duration) {
 	case <-ctx.Done():
 	case <-time.After(d):
 	}
+}
+
+// Raster images are shown inline; every other file downloads. Files come
+// from other agents, so nothing that can carry script (HTML, SVG, PDF) is
+// ever rendered from this origin.
+var inlineImages = map[string]bool{"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true, "image/avif": true}
+
+// handleBlob serves a file this host has: one it received completely, or
+// one it sent. Only files the daemon recorded can be served.
+func (s *Server) handleBlob(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	peer, dir, ref := q.Get("peer"), q.Get("dir"), q.Get("ref")
+	if peer == "" || ref == "" || (dir != "in" && dir != "out") {
+		httpError(w, http.StatusBadRequest, "peer, dir (in or out) and ref are required")
+		return
+	}
+	var blobs []*store.Blob
+	if err := s.C.Call(r.Context(), "blobs", api.PeerParams{Peer: peer}, &blobs); err != nil {
+		httpError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	var b *store.Blob
+	for _, x := range blobs {
+		if x.Dir == dir && x.Ref == ref {
+			b = x
+		}
+	}
+	if b == nil || b.Path == "" || (dir == "in" && b.Status != "complete") {
+		httpError(w, http.StatusNotFound, "no such file on this host")
+		return
+	}
+	f, err := os.Open(b.Path)
+	if err != nil {
+		httpError(w, http.StatusNotFound, "the file is no longer there")
+		return
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil || fi.IsDir() {
+		httpError(w, http.StatusNotFound, "the file is no longer there")
+		return
+	}
+	mime := strings.ToLower(strings.TrimSpace(strings.Split(b.Mime, ";")[0]))
+	name := b.Name
+	if name == "" {
+		name = ref
+	}
+	h := w.Header()
+	h.Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	h.Set("Cache-Control", "private, max-age=3600")
+	if inlineImages[mime] {
+		h.Set("Content-Type", mime)
+		h.Set("Content-Disposition", "inline; filename*=UTF-8''"+url.PathEscape(name))
+	} else {
+		h.Set("Content-Type", "application/octet-stream")
+		h.Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(name))
+	}
+	http.ServeContent(w, r, "", fi.ModTime(), f)
 }

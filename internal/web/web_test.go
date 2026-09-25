@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -195,6 +197,7 @@ type fakeDaemon struct {
 	boss   string
 	events []api.Event
 	subs   []chan api.Event
+	blobs  []*store.Blob
 }
 
 func (f *fakeDaemon) Call(ctx context.Context, method string, params json.RawMessage) (any, error) {
@@ -208,6 +211,8 @@ func (f *fakeDaemon) Call(ctx context.Context, method string, params json.RawMes
 		return local, nil
 	case "presence":
 		return net, nil
+	case "blobs":
+		return f.blobs, nil
 	case "mirrored":
 		return []store.MirroredThread{{Sharer: workerKey, Of: builderKey, Th: "thr_build", Subject: "Build it", Lines: 1, Updated: f.now}}, nil
 	case "read":
@@ -459,5 +464,50 @@ func TestActivityFromMirror(t *testing.T) {
 	a, ok := activityFromEvent(ev, hostKey)
 	if !ok || a.Local || a.From != workerKey || a.To != builderKey || a.Text != "hi" || a.Subject != "Build it" {
 		t.Errorf("activity from a mirrored line: %+v", a)
+	}
+}
+
+// Files this host has are served; images inline, everything else as a
+// download, and nothing that is not complete or not recorded.
+func TestBlobs(t *testing.T) {
+	fd, hs := startServer(t)
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := dir + "/" + name
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	fd.mu.Lock()
+	fd.blobs = []*store.Blob{
+		{Peer: workerKey, Dir: "in", Ref: "png", Name: "chart.png", Mime: "image/png", Status: "complete", Path: write("chart.png", "\x89PNG fake")},
+		{Peer: workerKey, Dir: "in", Ref: "svg", Name: "x.svg", Mime: "image/svg+xml", Status: "complete", Path: write("x.svg", "<svg onload=alert(1)>")},
+		{Peer: workerKey, Dir: "in", Ref: "half", Name: "big.bin", Status: "pending", Path: write("half", "par")},
+	}
+	fd.mu.Unlock()
+	get := func(ref, dir string) *http.Response {
+		t.Helper()
+		res, err := http.Get(hs.URL + "/api/blob?peer=" + url.QueryEscape(workerKey) + "&dir=" + dir + "&ref=" + ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res
+	}
+	if res := get("png", "in"); res.StatusCode != 200 || res.Header.Get("Content-Type") != "image/png" || !strings.HasPrefix(res.Header.Get("Content-Disposition"), "inline") {
+		t.Errorf("png: %d %q %q", res.StatusCode, res.Header.Get("Content-Type"), res.Header.Get("Content-Disposition"))
+	}
+	res := get("svg", "in")
+	if res.StatusCode != 200 || res.Header.Get("Content-Type") != "application/octet-stream" || !strings.HasPrefix(res.Header.Get("Content-Disposition"), "attachment") {
+		t.Errorf("svg must download, not render: %d %q %q", res.StatusCode, res.Header.Get("Content-Type"), res.Header.Get("Content-Disposition"))
+	}
+	if !strings.Contains(res.Header.Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("files are not sandboxed: %q", res.Header.Get("Content-Security-Policy"))
+	}
+	for _, c := range [][2]string{{"half", "in"}, {"nope", "in"}, {"png", "out"}, {"png", "sideways"}} {
+		if res := get(c[0], c[1]); res.StatusCode == 200 {
+			t.Errorf("%s/%s was served", c[0], c[1])
+		}
 	}
 }

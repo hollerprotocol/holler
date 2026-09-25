@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -555,6 +556,9 @@ type WebPart struct {
 	Mime   string          `json:"mime,omitempty"`
 	Size   *int64          `json:"size,omitempty"`
 	Status string          `json:"status,omitempty"`
+	// URL fetches a file this host has (holler web's /api/blob): received
+	// and complete, or sent by this host.
+	URL string `json:"url,omitempty"`
 }
 
 // messageFromEvent turns a local thread's event into a conversation line.
@@ -576,6 +580,9 @@ func messageFromEvent(ev api.Event, self string) (Message, bool) {
 				wp.Size = &size
 				if b, ok := ev.Blobs[p.Ref]; ok {
 					wp.Status = b.Status
+					if ev.Dir == "out" || b.Status == "complete" {
+						wp.URL = blobURL(ev.Peer, ev.Dir, p.Ref)
+					}
 				}
 			}
 			m.Parts = append(m.Parts, wp)
@@ -605,4 +612,8 @@ func mirrorSides(ev api.Event) (from, to string) {
 		return from, of
 	}
 	return from, ev.Peer
+}
+
+func blobURL(peer, dir, ref string) string {
+	return "/api/blob?" + url.Values{"peer": {peer}, "dir": {dir}, "ref": {ref}}.Encode()
 }
