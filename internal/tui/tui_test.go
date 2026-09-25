@@ -13,6 +13,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/hollerprotocol/holler/internal/api"
@@ -319,6 +320,42 @@ func TestLongNamesFit(t *testing.T) {
 		check("network")
 		h.press("3")
 		check("activity")
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		w    int
+		want string
+	}{
+		{"abc", 5, "abc"},
+		{"abcdef", 4, "abc…"},
+		{"tailcat:ab…xyz", 12, "tailcat:ab…"},
+		{"tailcat:ab…xyz", 13, "tailcat:ab…x…"},
+	} {
+		if got := ansi.Strip(truncate(c.in, c.w)); got != c.want {
+			t.Errorf("truncate(%q, %d) = %q, want %q", c.in, c.w, got, c.want)
+		}
+		styled := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F87")).Render(c.in)
+		if got := ansi.Strip(truncate(styled, c.w)); got != c.want {
+			t.Errorf("truncate(styled %q, %d) = %q, want %q", c.in, c.w, got, c.want)
+		}
+	}
+}
+
+// Pasted output keeps its lines instead of being reflowed into one.
+func TestMarkdownKeepsLines(t *testing.T) {
+	var md markdown
+	out := ansi.Strip(md.render("k", "Ran the suite:\ntest_add ... ok\ntest_average ... ok", 60, true))
+	var lines []string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.TrimSpace(l) != "" {
+			lines = append(lines, strings.TrimSpace(l))
+		}
+	}
+	if want := []string{"Ran the suite:", "test_add ... ok", "test_average ... ok"}; !slices.Equal(lines, want) {
+		t.Errorf("rendered lines %q, want %q", lines, want)
 	}
 }
 

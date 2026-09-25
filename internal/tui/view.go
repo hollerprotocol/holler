@@ -50,7 +50,7 @@ func (m model) fit(s string, h int) string {
 		lines = lines[:h]
 	}
 	for i, l := range lines {
-		lines[i] = ansi.Truncate(l, m.w, "…")
+		lines[i] = truncate(l, m.w)
 	}
 	for len(lines) < h {
 		lines = append(lines, "")
@@ -165,7 +165,7 @@ func (m model) headerParts(level int) (string, string) {
 func (m model) spread(left, right string) string {
 	gap := m.w - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
-		return ansi.Truncate(left+" "+right, m.w, "…")
+		return truncate(left+" "+right, m.w)
 	}
 	return left + strings.Repeat(" ", gap) + right
 }
@@ -212,6 +212,18 @@ func (m model) pulseDot() string {
 
 // --- panes ---
 
+// truncate cuts s to w columns, ending in one "…" even when the cut falls
+// just after an ellipsis s already had (a shortened address, say).
+func truncate(s string, w int) string {
+	if ansi.StringWidth(s) <= w {
+		return s
+	}
+	if cut := ansi.Truncate(s, max(0, w-1), ""); strings.HasSuffix(ansi.Strip(cut), "…") {
+		return cut
+	}
+	return ansi.Truncate(s, w, "…")
+}
+
 // box draws a rounded pane of exactly w×h with a title in its top edge.
 func (m model) box(title string, count int, lines []string, w, h int, focused bool) string {
 	t := m.th
@@ -228,7 +240,7 @@ func (m model) box(title string, count int, lines []string, w, h int, focused bo
 	}
 	// The top edge is "╭─ title count ─╮": cut the title so at least one
 	// ─ is left before the corner.
-	title = ansi.Truncate(title, max(0, w-6-len(suffix)), "…")
+	title = truncate(title, max(0, w-6-len(suffix)))
 	label := titleStyle.Render(title)
 	if suffix != "" {
 		label += t.faintText.Render(suffix)
@@ -241,7 +253,7 @@ func (m model) box(title string, count int, lines []string, w, h int, focused bo
 	for i := 0; i < h-2; i++ {
 		line := ""
 		if i < len(lines) {
-			line = ansi.Truncate(lines[i], inner, "…")
+			line = truncate(lines[i], inner)
 		}
 		pad := max(0, inner-lipgloss.Width(line))
 		out.WriteString(b.Render("│") + " " + line + strings.Repeat(" ", pad) + " " + b.Render("│") + "\n")
@@ -602,7 +614,7 @@ func (m model) feedLine(it feedItem, width int, withTime bool) string {
 	} else {
 		line = " " + line
 	}
-	return ansi.Truncate(line, width, "…")
+	return truncate(line, width)
 }
 
 func (m model) feedPane(r rect) string {

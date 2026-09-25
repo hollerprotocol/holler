@@ -29,7 +29,10 @@ func (md *markdown) render(key, text string, width int, dark bool) string {
 		cfg.Document.BlockPrefix = empty
 		cfg.Document.BlockSuffix = empty
 		cfg.CodeBlock.Margin = &zero
-		r, err := glamour.NewTermRenderer(glamour.WithStyles(cfg), glamour.WithWordWrap(width))
+		// Keep single newlines: agents paste command output and lists
+		// without blank lines, and reflowing them into one paragraph
+		// garbles them.
+		r, err := glamour.NewTermRenderer(glamour.WithStyles(cfg), glamour.WithWordWrap(width), glamour.WithPreservedNewLines())
 		if err != nil {
 			return text
 		}

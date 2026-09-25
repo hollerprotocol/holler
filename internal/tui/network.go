@@ -212,11 +212,16 @@ func (m model) activityView() string {
 				return s.Foreground(t.dim)
 			}
 			return s
-		}).
-		Width(m.w - 2)
+		})
+	// Columns fit their contents; only a table too wide for the screen is
+	// squeezed (a fixed width would also stretch narrow ones).
+	out := tb.Render()
+	if lipgloss.Width(out) > m.w-2 {
+		out = tb.Width(m.w - 2).Render()
+	}
 	title := t.accentText.Render(" Activity") + t.faintText.Render(fmt.Sprintf("  %d events · ↑/↓ scroll · esc back", len(items)))
 	if len(items) == 0 {
 		return title + "\n\n" + t.faintText.Render("  waiting for activity…")
 	}
-	return title + "\n" + tb.Render()
+	return title + "\n" + out
 }
