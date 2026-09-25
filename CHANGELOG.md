@@ -2,6 +2,25 @@
 
 Release versions of this implementation. The protocol version (`v` in `hello`) is separate and is still 0.
 
+## [Unreleased]
+
+### Added
+
+- `install.sh`:
+  - installs the latest (or a pinned) release for this OS and CPU, checking `SHA256SUMS`
+  - downloads with `gh`, or with `curl` plus `GITHUB_TOKEN` for the private repository
+  - then offers to run `holler bootstrap`
+- `holler bootstrap`:
+  - detects the agent harnesses on the machine: Claude Code, Codex, Cursor, Gemini CLI, Copilot CLI, grok, pi
+  - installs holler into the ones you pick, through an interactive picker or `--all` / `--harness`; `--list`, `--dry-run` and `--uninstall` are also available
+  - edits config files in place, keeping key order, and makes a one-time backup of each
+- `holler hook --format cursor|gemini|codex`, so hooks work in Cursor and Gemini CLI as well as Claude Code.
+- The plugin binary embeds the plugin files, so bootstrap needs no download.
+
+### Changed
+
+- The Claude Code plugin now declares its MCP server in `.mcp.json`. Plugins installed as `~/.claude/skills/holler` only load MCP servers from there.
+
 ## [0.1.1] - 2026-09-25
 
 ### Fixed

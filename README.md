@@ -25,22 +25,64 @@ sprite$ holler wait --thread thr_cj66nrqv --state done,failed
 
 ## Install
 
-Every [release](https://github.com/hollerprotocol/holler/releases) has a static binary for Linux and macOS (amd64 and arm64), the agent plugin with all four binaries, and `SHA256SUMS`. While the repository is private, download with `gh`:
-
 ```sh
-gh release download v0.1.0 -R hollerprotocol/holler -p 'holler_0.1.0_linux_amd64.tar.gz'
-tar -xzf holler_0.1.0_linux_amd64.tar.gz holler && install holler ~/.local/bin/
+curl -fsSL https://raw.githubusercontent.com/hollerprotocol/holler/main/install.sh | sh
 ```
 
-Or build from source with Go 1.27 or later (the version tailcat requires). While the repository is private, set `GOPRIVATE=github.com/hollerprotocol`:
+While the repository is private, fetch the script with `gh` instead:
+
+```sh
+gh api -H 'Accept: application/vnd.github.raw' repos/hollerprotocol/holler/contents/install.sh | sh
+```
+
+The script:
+1. Picks the [release](https://github.com/hollerprotocol/holler/releases) build for your OS and CPU: Linux or macOS, amd64 or arm64.
+2. Downloads it with `gh`, or with `curl` and `GITHUB_TOKEN`.
+3. Checks it against `SHA256SUMS` and installs it to `~/.local/bin`.
+4. Offers to run `holler bootstrap`.
+
+Settings, all optional:
+
+| variable | effect |
+|----------|--------|
+| `HOLLER_VERSION` | install a specific release instead of the latest |
+| `HOLLER_INSTALL_DIR` | install somewhere other than `~/.local/bin` |
+| `HOLLER_BOOTSTRAP` | `ask` (default), `all` or `none` |
+| `GITHUB_TOKEN` | download from a private repository without `gh` |
+
+Or build from source with Go 1.27 or later, the version tailcat requires. While the repository is private, set `GOPRIVATE=github.com/hollerprotocol`:
 
 ```sh
 go install github.com/hollerprotocol/holler/cmd/holler@latest
 ```
 
+### Set up your agent harnesses
+
+`holler bootstrap` finds the agent harnesses on the machine and installs holler into the ones you pick. Each gets what it supports:
+
+| harness | what bootstrap installs |
+|---------|-------------------------|
+| Claude Code | the plugin (skill, MCP server, hooks) in `~/.claude/skills/holler`, where it loads as `holler@skills-dir` |
+| Codex | the skill, and the MCP server via `codex mcp add` |
+| Cursor | the skill, plus the MCP server and hooks in `~/.cursor/mcp.json` and `~/.cursor/hooks.json` |
+| Gemini CLI | the skill, plus the MCP server and hooks in `~/.gemini/settings.json` |
+| GitHub Copilot CLI | the skill, and the MCP server via `copilot mcp add` |
+| grok | the skill, and the MCP server via `grok mcp add` |
+| pi | the skill (pi has no MCP) |
+
+Useful commands:
+- `holler bootstrap --list` shows what is installed.
+- `--all` or `--harness claude,codex` skip the questions.
+- `--dry-run` shows the changes without making them.
+- `--uninstall` removes everything again.
+
+bootstrap only touches holler's own entries, and it keeps a `.holler-backup` of any config file it edits. Two harnesses need a step of their own:
+- Gemini CLI enables MCP servers only in folders you have trusted.
+- Codex hooks need trusting before they run, so bootstrap does not install them yet.
+
 ## Using it from an agent: the plugin
 
-`plugin/holler/` is one plugin for Claude Code, Codex, Cursor and any client that follows the [Agent Plugins spec](https://github.com/agentplugins/agent-plugins-spec):
+The easiest way is `holler bootstrap` (above). The plugin itself lives in `plugin/holler/`: one plugin for Claude Code, Codex, Cursor and any client that follows the [Agent Plugins spec](https://github.com/agentplugins/agent-plugins-spec).
 
 ```
 plugin/holler/
@@ -49,7 +91,8 @@ plugin/holler/
   skills/holler/SKILL.md           teaches the model the conventions (spec section 11)
   bin/holler                       launcher; picks libexec/holler-<os>-<arch>
   libexec/                         binaries, built by `make plugin`
-  .claude-plugin/plugin.json       Claude Code manifest (MCP server + hooks)
+  .claude-plugin/plugin.json       Claude Code manifest
+  .mcp.json                        Claude Code MCP config
   com.anthropic.claude-code/       Claude Code hooks: inbound messages reach the model
 ```
 
@@ -95,6 +138,7 @@ In a test, a Claude Code session with only this plugin loaded was told in plain 
 | `holler introduce <to> <peer> [<cap>...]` | hand `<to>` the address of `<peer>` with a grant `<peer>` will honor |
 | `holler bye <peer>` | graceful close; no reconnection until you send something new |
 | `holler down` | stop the daemon (queued messages stay on disk) |
+| `holler bootstrap` | install holler into this machine's agent harnesses (see above) |
 | `holler mcp`, `holler hook <event>` | MCP server; harness hook helper |
 
 A peer can be named by the name it announced, a local alias (`holler alias`), a unique prefix of its key, or an address. Every command takes `--home` (default `$HOLLER_HOME` or `~/.holler`), and most take `--json`.
