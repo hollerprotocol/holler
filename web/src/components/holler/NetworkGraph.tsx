@@ -299,10 +299,10 @@ export function NetworkGraph({
                   d={d}
                   fill="none"
                   stroke="var(--accent)"
-                  strokeOpacity={0.55}
-                  strokeWidth={1.6}
+                  strokeOpacity={0.9}
+                  strokeWidth={2.8}
                   strokeLinecap="round"
-                  strokeDasharray="2 10"
+                  strokeDasharray="0.01 11.99"
                   style={{ animation: "flow 1.2s linear infinite", transition: "d 600ms var(--ease-out-strong)" }}
                 />
               )}
@@ -311,10 +311,10 @@ export function NetworkGraph({
         })}
         {pulses.map((p) => (
           <g key={p.id}>
-            <circle r={6} fill={p.color} opacity={0.35} filter="url(#pulse-glow)">
+            <circle r={9} fill={p.color} opacity={0.5} filter="url(#pulse-glow)">
               <animateMotion dur={`${p.dur}ms`} path={p.path} fill="freeze" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.4 0 0.2 1" />
             </circle>
-            <circle r={2.6} fill={p.color}>
+            <circle r={3.8} fill={p.color} stroke="var(--surface)" strokeWidth={1.2}>
               <animateMotion dur={`${p.dur}ms`} path={p.path} fill="freeze" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.4 0 0.2 1" />
             </circle>
           </g>

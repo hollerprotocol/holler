@@ -31,7 +31,7 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
           >
             <span className="relative">
               <Orb agentKey={a.key} size={34} working={a.working} dim={dim} harness={a.harness} />
-              <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface" style={{ background: DOT[a.status] }} />
+              <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-surface" style={{ background: DOT[a.status] }} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-1.5">

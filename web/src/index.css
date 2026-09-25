@@ -5,6 +5,7 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist-mono";
 @import "./app/beautifui/foundation.css";
+@import "./app/beautifui/sidebar-nav.css";
 
 @custom-variant dark (&:is(.dark *));
 

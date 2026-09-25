@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { StreamText } from "@/components/atoms/StreamText"
-import LoadingState from "@/components/primitives/LoadingState"
+import { Loading } from "./Loading"
 import { agentName, agoText, clock } from "@/lib/format"
 import { Code, Markdown } from "@/lib/markdown"
 import { getStore, useNow } from "@/lib/store"
@@ -197,7 +197,7 @@ export function ThreadDetail({ thread, state, agents }: { thread: Thread; state:
         </div>
       ) : !conv ? (
         <div className="flex flex-1 items-center justify-center">
-          <LoadingState label="Loading conversation" variant="Dots" />
+          <Loading label="Loading conversation" />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">

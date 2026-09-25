@@ -1,3 +1,5 @@
+import { Comet } from "loading-dev"
+
 import { Badge, CheckMark, SpinnerRing, XMark } from "@/components/primitives/TaskRows"
 import GlideMenu from "@/components/primitives/GlideMenu"
 import { ago, isEnded } from "@/lib/format"
@@ -16,7 +18,12 @@ function Lead({ t }: { t: Thread }) {
       <span className="flex size-5.5 items-center justify-center rounded-full bg-field text-ink-3 shadow-hairline"><CheckMark /></span>
     )
   }
-  if (s.includes("working")) return <SpinnerRing active />
+  if (s.includes("working"))
+    return (
+      <span className="flex size-6 shrink-0 items-center justify-center">
+        <Comet size={20} color="var(--accent)" />
+      </span>
+    )
   if (s.includes("waiting"))
     return (
       <SpinnerRing>

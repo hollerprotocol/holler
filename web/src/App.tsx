@@ -1,17 +1,21 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { Dialog } from "@base-ui/react/dialog"
+import { Menu, Search } from "lucide-react"
 
-import LoadingState from "@/components/primitives/LoadingState"
 import { AgentList } from "@/components/holler/AgentList"
 import { ActivityFeed } from "@/components/holler/ActivityFeed"
 import { EmptyNetwork } from "@/components/holler/EmptyNetwork"
-import { Connection, SearchButton, SoundToggle, ThemeToggle, Wordmark } from "@/components/holler/Header"
+import { Connection, Wordmark } from "@/components/holler/Header"
+import { Loading } from "@/components/holler/Loading"
+import { Sidebar } from "@/components/holler/Sidebar"
 import { NetworkGraph } from "@/components/holler/NetworkGraph"
 import { Palette } from "@/components/holler/Palette"
 import { Sheet } from "@/components/holler/Sheet"
 import { Stats } from "@/components/holler/Stats"
 import { ThreadList } from "@/components/holler/ThreadList"
 import { agentName, plural } from "@/lib/format"
-import { playFor } from "@/lib/sound"
+import { playFor, usePanelSound } from "@/lib/sound"
+import { useView } from "@/lib/route"
 import { getStore, useHoller } from "@/lib/store"
 import type { Activity, State, Thread } from "@/lib/types"
 
@@ -37,6 +41,72 @@ function Card({ title, sub, action, children, className = "" }: { title?: string
   )
 }
 
+function PageTitle({ title, sub, big = false }: { title: string; sub: string; big?: boolean }) {
+  return (
+    <div className="mb-6">
+      <h1 className={`leading-[1.05] font-semibold text-balance text-ink ${big ? "text-[34px] tracking-[-0.04em] sm:text-[44px]" : "text-[28px] tracking-[-0.035em] sm:text-[34px]"}`}>{title}</h1>
+      <p className="mt-2 max-w-3xl text-[15px] text-ink-2">{sub}</p>
+    </div>
+  )
+}
+
+function SeeAll({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" data-sound="select" onClick={onClick} className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-ink-3 transition-colors hover:bg-hover hover:text-ink">
+      See all
+    </button>
+  )
+}
+
+function NetworkCard({
+  state,
+  alone,
+  selected,
+  onSelect,
+  className,
+  titled,
+}: {
+  state: State
+  alone: boolean
+  titled: boolean
+  selected?: string
+  onSelect: (key: string) => void
+  className: string
+}) {
+  return (
+    <section className={`relative min-w-0 overflow-hidden rounded-[18px] bg-surface shadow-card ${className}`}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 60% 55% at 50% 50%, var(--glow-a), transparent 70%), radial-gradient(ellipse 40% 40% at 80% 20%, var(--glow-b), transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(color-mix(in oklch, var(--ink-3) 45%, transparent) 1.2px, transparent 1.4px)",
+          backgroundSize: "22px 22px",
+          maskImage: "radial-gradient(ellipse at center, #000 45%, transparent 92%)",
+        }}
+      />
+      <div className={`absolute top-4 left-4 z-10 ${titled ? "" : "hidden"}`}>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Network</h2>
+        <p className="text-[12px] text-ink-3">
+          {plural(state.agents.length, "agent")} · {plural(state.links.length, "link")}
+        </p>
+      </div>
+      <div className="absolute bottom-3 left-4 z-10 hidden items-center gap-3 text-[11.5px] text-ink-3 sm:flex">
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-green" />connected</span>
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-accent" />via gossip</span>
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-ink-3" />quiet</span>
+      </div>
+      <div className="absolute inset-0 pt-8">{alone ? <EmptyNetwork state={state} /> : <NetworkGraph state={state} selected={selected} onSelect={onSelect} />}</div>
+    </section>
+  )
+}
+
 function headline(state: State): { title: string; sub: string } {
   const others = state.agents.length - 1
   const working = state.agents.filter((a) => a.working).length
@@ -58,6 +128,23 @@ export function App() {
   const { state, activity, conn, error } = useHoller()
   const [sel, setSel] = useState<Selection>()
   const [palette, setPalette] = useState(false)
+  const [view, go] = useView()
+  const [drawer, setDrawer] = useState(false)
+  const [collapsed, setCollapsedState] = useState(() => {
+    try {
+      return localStorage.getItem("holler.sidebar") === "collapsed"
+    } catch {
+      return false
+    }
+  })
+  const setCollapsed = (c: boolean) => {
+    setCollapsedState(c)
+    try {
+      localStorage.setItem("holler.sidebar", c ? "collapsed" : "open")
+    } catch {
+      // private mode: the choice lasts this visit
+    }
+  }
 
   useEffect(() => getStore().onActivity(playFor), [])
 
@@ -92,6 +179,9 @@ export function App() {
 
   const selAgent = sel?.kind === "agent" ? agents.get(sel.key) : undefined
   const selThread = sel?.kind === "thread" ? (state?.threads.find((t) => t.id === sel.id) ?? sel.fallback) : undefined
+  usePanelSound(!!(selAgent || selThread))
+  usePanelSound(palette)
+  usePanelSound(drawer)
 
   if (!state) {
     return (
@@ -106,7 +196,7 @@ export function App() {
             </p>
           </div>
         ) : (
-          <LoadingState label="Listening for the network" variant="Dots" />
+          <Loading kind="ripple" label="Listening for the network" />
         )}
       </div>
     )
@@ -115,101 +205,134 @@ export function App() {
   const h = headline(state)
   const alone = state.agents.length <= 1
   const selectedKey = sel?.kind === "agent" ? sel.key : undefined
+  const selectedThread = sel?.kind === "thread" ? sel.id : undefined
+  const sidebar = (mobile: boolean) => (
+    <Sidebar
+      state={state}
+      conn={conn}
+      view={view}
+      onView={go}
+      onAgent={openAgent}
+      onSearch={() => setPalette(true)}
+      selectedAgent={selectedKey}
+      collapsed={collapsed}
+      onCollapse={setCollapsed}
+      mobile={mobile}
+      onClose={mobile ? () => setDrawer(false) : undefined}
+    />
+  )
+  const network = (className: string, titled = true) => (
+    <NetworkCard state={state} alone={alone} selected={selectedKey} onSelect={openAgent} className={className} titled={titled} />
+  )
+  const threads = (
+    <ThreadList threads={state.threads} agents={agents} selected={selectedThread} onOpen={openThread} onAgent={openAgent} />
+  )
+  const agentList = <AgentList agents={state.agents} selected={selectedKey} onSelect={openAgent} />
+  const feed = (className: string, titled = true) => (
+    <Card className={`flex flex-col ${className}`}>
+      <ActivityFeed activity={activity} agents={agents} query="" onAgent={openAgent} onThread={openActivity} className="flex-1" titled={titled} />
+    </Card>
+  )
 
   return (
-    <div className="min-h-svh">
-      <header className="sticky top-0 z-30 border-b border-line/70 bg-page/80 backdrop-blur-xl backdrop-saturate-150">
-        <div className="mx-auto flex h-14 max-w-[1560px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <Wordmark />
-          <span className="hidden h-5 w-px bg-line-strong sm:block" />
-          <span className="hidden min-w-0 truncate text-[13px] text-ink-3 sm:block">
-            watching from <span className="font-medium text-ink-2">{state.host_name}</span>
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <SearchButton onClick={() => setPalette(true)} />
+    <div className="flex min-h-svh">
+      <div className="sticky top-0 hidden h-svh shrink-0 border-r border-line/70 bg-page lg:block">{sidebar(false)}</div>
+
+      <Dialog.Root open={drawer} onOpenChange={setDrawer}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-[oklch(0.2_0.01_260/0.18)] backdrop-blur-[2px] transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 lg:hidden dark:bg-[oklch(0_0_0/0.45)]" />
+          <Dialog.Popup className="fixed inset-y-0 left-0 z-50 bg-page shadow-overlay outline-none transition-transform duration-300 ease-[var(--ease-out-strong)] data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full lg:hidden">
+            <Dialog.Title className="sr-only">Navigation</Dialog.Title>
+            {sidebar(true)}
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 border-b border-line/70 bg-page/80 backdrop-blur-xl backdrop-saturate-150 lg:hidden">
+          <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
             <button
               type="button"
-              aria-label="Search"
-              onClick={() => setPalette(true)}
-              className="flex size-8 items-center justify-center rounded-full bg-surface text-ink-2 shadow-hairline md:hidden"
+              aria-label="Open navigation"
+              onClick={() => setDrawer(true)}
+              className="-ml-1.5 flex size-9 items-center justify-center rounded-[10px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+              <Menu size={20} />
             </button>
-            <Connection conn={conn} />
-            <SoundToggle />
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[1560px] px-4 pt-8 pb-10 sm:px-6 lg:px-8">
-        <div className="mb-7" style={{ animation: "rise-in 600ms var(--ease-out-strong) both" }}>
-          <h1 className="text-[34px] leading-[1.05] font-semibold tracking-[-0.04em] text-balance text-ink sm:text-[44px]">{h.title}</h1>
-          <p className="mt-2 text-[15px] text-ink-2">{h.sub}</p>
-        </div>
-
-        <Stats state={state} activity={activity} />
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <section className="relative h-[440px] min-w-0 overflow-hidden rounded-[18px] bg-surface shadow-card sm:h-[520px]">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background: "radial-gradient(ellipse 60% 55% at 50% 50%, var(--glow-a), transparent 70%), radial-gradient(ellipse 40% 40% at 80% 20%, var(--glow-b), transparent 70%)",
-                }}
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-60"
-                style={{ backgroundImage: "radial-gradient(var(--line-strong) 1px, transparent 1px)", backgroundSize: "22px 22px", maskImage: "radial-gradient(ellipse at center, #000 30%, transparent 80%)" }}
-              />
-              <div className="absolute top-4 left-4 z-10">
-                <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Network</h2>
-                <p className="text-[12px] text-ink-3">
-                  {plural(state.agents.length, "agent")} · {plural(state.links.length, "link")}
-                </p>
-              </div>
-              <div className="absolute bottom-3 left-4 z-10 hidden items-center gap-3 text-[11.5px] text-ink-3 sm:flex">
-                <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-green" />connected</span>
-                <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-accent" />via gossip</span>
-                <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-ink-3" />quiet</span>
-              </div>
-              <div className="absolute inset-0 pt-8">
-                {alone ? <EmptyNetwork state={state} /> : <NetworkGraph state={state} selected={selectedKey} onSelect={openAgent} />}
-              </div>
-            </section>
-
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-              <Card title="Threads" sub="Every conversation on the network, with both sides' states">
-                <div className="px-1.5 pb-2">
-                  <ThreadList threads={state.threads} agents={agents} selected={sel?.kind === "thread" ? sel.id : undefined} onOpen={openThread} onAgent={openAgent} />
-                </div>
-              </Card>
-              <Card title="Agents" sub={`${state.stats.up} of ${state.stats.agents} up`}>
-                <div className="px-1.5 pb-2">
-                  <AgentList agents={state.agents} selected={selectedKey} onSelect={openAgent} />
-                </div>
-              </Card>
+            <Wordmark />
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Search"
+                onClick={() => setPalette(true)}
+                className="flex size-8 items-center justify-center rounded-full bg-surface text-ink-2 shadow-hairline"
+              >
+                <Search size={14} />
+              </button>
+              <Connection conn={conn} />
             </div>
           </div>
+        </header>
 
-          <aside className="min-w-0 lg:sticky lg:top-[72px] lg:self-start">
-            <Card className="flex h-[640px] flex-col lg:h-[calc(100svh-88px)]">
-              <ActivityFeed activity={activity} agents={agents} query="" onAgent={openAgent} onThread={openActivity} className="flex-1" />
-            </Card>
-          </aside>
-        </div>
+        <main key={view} className="mx-auto max-w-[1440px] px-4 pt-7 pb-10 sm:px-6 lg:px-8 lg:pt-9" style={{ animation: "rise-in 420ms var(--ease-out-strong) both" }}>
+          {view === "overview" && (
+            <>
+              <PageTitle title={h.title} sub={h.sub} big />
+              <Stats state={state} activity={activity} />
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
+                <div className="flex min-w-0 flex-col gap-4">
+                  {network("h-[440px] sm:h-[500px]")}
+                  <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                    <Card title="Threads" sub="Every conversation on the network, with both sides' states" action={<SeeAll onClick={() => go("threads")} />}>
+                      <div className="px-1.5 pb-2">{threads}</div>
+                    </Card>
+                    <Card title="Agents" sub={`${state.stats.up} of ${state.stats.agents} up`} action={<SeeAll onClick={() => go("agents")} />}>
+                      <div className="px-1.5 pb-2">{agentList}</div>
+                    </Card>
+                  </div>
+                </div>
+                <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">{feed("h-[640px] xl:h-[calc(100svh-48px)]")}</aside>
+              </div>
+            </>
+          )}
+          {view === "network" && (
+            <>
+              <PageTitle title="Network" sub={`${plural(state.agents.length, "agent")} and ${plural(state.links.length, "link")}, as far as presence gossip reaches from ${state.host_name}`} />
+              {network("h-[calc(100svh-190px)] min-h-[440px]", false)}
+            </>
+          )}
+          {view === "threads" && (
+            <>
+              <PageTitle title="Threads" sub={`${plural(state.stats.threads, "conversation")}, ${state.stats.active} active. Threads this host is part of open as a live conversation; the rest are private to their two agents.`} />
+              <Card>
+                <div className="p-1.5">{threads}</div>
+              </Card>
+            </>
+          )}
+          {view === "agents" && (
+            <>
+              <PageTitle title="Agents" sub={`${state.stats.up} of ${plural(state.stats.agents, "agent")} up. ${state.stats.working} working, ${state.stats.waiting} waiting.`} />
+              <Card>
+                <div className="p-1.5">{agentList}</div>
+              </Card>
+            </>
+          )}
+          {view === "activity" && (
+            <>
+              <PageTitle title="Activity" sub="Everything happening on the network, live, from this host and every agent's presence" />
+              {feed("h-[calc(100svh-190px)] min-h-[480px]", false)}
+            </>
+          )}
 
-        <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ink-3">
-          <span>holler {state.version}</span>
-          <span>
-            Press <kbd className="rounded-[5px] bg-field px-1 font-mono shadow-hairline">/</kbd> to search ·{" "}
-            <kbd className="rounded-[5px] bg-field px-1 font-mono shadow-hairline">d</kbd> for dark mode
-          </span>
-        </footer>
-      </main>
+          <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ink-3">
+            <span>holler {state.version}</span>
+            <span>
+              Press <kbd className="rounded-[5px] bg-field px-1 font-mono shadow-hairline">/</kbd> to search ·{" "}
+              <kbd className="rounded-[5px] bg-field px-1 font-mono shadow-hairline">d</kbd> for dark mode
+            </span>
+          </footer>
+        </main>
+      </div>
 
       <Sheet
         open={!!(selAgent || selThread)}
@@ -219,7 +342,7 @@ export function App() {
         <Suspense
           fallback={
             <div className="flex flex-1 items-center justify-center">
-              <LoadingState label="Loading" variant="Dots" />
+              <Loading label="Loading" />
             </div>
           }
         >

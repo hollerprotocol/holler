@@ -5,6 +5,7 @@ export function CopyButton({ text, label = "Copy", className = "" }: { text: str
   const [done, setDone] = useState(false)
   return (
     <button
+      data-sound="copy"
       type="button"
       onClick={() => {
         navigator.clipboard

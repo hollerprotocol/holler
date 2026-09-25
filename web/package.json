@@ -20,6 +20,7 @@
     "cn": "^0.4.0",
     "liveline": "^0.0.7",
     "loading-dev": "^0.3.4",
+    "lucide-react": "^1.48.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "shadcn": "^4.21.0",

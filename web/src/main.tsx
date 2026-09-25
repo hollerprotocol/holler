@@ -5,6 +5,7 @@ import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { http, type Transport } from "@/lib/api"
+import { installUiSounds } from "@/lib/sound"
 import { HollerStore, setStore } from "@/lib/store"
 
 async function transport(): Promise<Transport> {
@@ -17,6 +18,7 @@ transport().then((t) => {
   const store = new HollerStore(t)
   setStore(store)
   store.start()
+  installUiSounds()
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ThemeProvider>

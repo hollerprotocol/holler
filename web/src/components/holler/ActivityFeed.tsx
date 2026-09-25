@@ -153,12 +153,15 @@ export function ActivityFeed({
   onAgent,
   onThread,
   className = "",
+  titled = true,
 }: {
   activity: Activity[]
   agents: Map<string, Agent>
   query: string
   onAgent: (k: string) => void
   onThread: (a: Activity) => void
+  /** false on the Activity page, whose title says it already */
+  titled?: boolean
   className?: string
 }) {
   const [filter, setFilter] = useState<Filter>("all")
@@ -200,13 +203,15 @@ export function ActivityFeed({
 
   return (
     <section className={`flex min-h-0 flex-col ${className}`}>
-      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
-        <div>
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Activity</h2>
-          <p className="text-[12px] text-ink-3">Everything happening on the network, live</p>
+      {titled && (
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Activity</h2>
+            <p className="text-[12px] text-ink-3">Everything happening on the network, live</p>
+          </div>
         </div>
-      </div>
-      <div className="px-4 pb-2">
+      )}
+      <div className={`px-4 pb-2 ${titled ? "" : "pt-4"}`}>
         <div className="relative grid grid-cols-4 rounded-[10px] bg-field p-0.5 shadow-hairline" role="tablist">
           <span
             aria-hidden
@@ -222,6 +227,7 @@ export function ActivityFeed({
               key={f.id}
               type="button"
               role="tab"
+              data-sound="select"
               aria-selected={filter === f.id}
               onClick={() => setFilter(f.id)}
               className={`relative z-10 h-7 rounded-[8px] text-[12px] font-medium transition-colors ${

@@ -1,10 +1,18 @@
-// Quiet cues for live activity, synthesized with @web-kits/audio. Off until
-// the viewer turns them on (browsers need a gesture to start audio), and
-// throttled so a burst of events is one sound, not a clatter.
-import { useSyncExternalStore } from "react"
+// Quiet cues for live activity and for the interface itself, synthesized
+// with @web-kits/audio. Off until the viewer turns them on (browsers need a
+// gesture to start audio), and throttled so a burst of events is one sound,
+// not a clatter.
+//
+// Interface sounds: every button, link, tab and row taps when pressed. An
+// element (or an ancestor) can ask for another cue with data-sound="select",
+// "open", "close", "on", "off" or "copy", or for silence with
+// data-sound="none". Opening and closing panels play from the code that does
+// it (ui("open")).
+import { useEffect, useRef, useSyncExternalStore } from "react"
 import type { Activity } from "./types"
 
 type Cue = "message" | "working" | "waiting" | "done" | "failed" | "joined" | "left"
+export type UiCue = "tap" | "select" | "open" | "close" | "on" | "off" | "copy"
 
 const KEY = "holler.sound"
 
@@ -19,6 +27,7 @@ function readPref(): boolean {
 let enabled = readPref()
 const listeners = new Set<() => void>()
 let players: Record<Cue, (o?: { volume?: number }) => unknown> | undefined
+let uiPlayers: Record<UiCue, () => unknown> | undefined
 let loading: Promise<void> | undefined
 
 async function load() {
@@ -77,6 +86,56 @@ async function load() {
         gain: 0.06,
       }),
     }
+    const click = { attack: 0.001, decay: 0.03, sustain: 0, release: 0.01 }
+    uiPlayers = {
+      // a dry, tiny click: felt more than heard
+      tap: defineSound({
+        layers: [
+          { source: { type: "noise", color: "white" }, filter: { type: "bandpass", frequency: 3200, resonance: 1.4 }, envelope: click, gain: 0.05 },
+          { source: { type: "sine", frequency: { start: 1900, end: 1300 } }, envelope: click, gain: 0.035 },
+        ],
+      }),
+      // a rounder tick, for choosing a view or a filter
+      select: defineSound({
+        source: { type: "triangle", frequency: { start: 880, end: 990 } },
+        envelope: { attack: 0.002, decay: 0.06, sustain: 0, release: 0.03 },
+        gain: 0.08,
+      }),
+      // a soft upward swish as a panel slides in
+      open: defineSound({
+        layers: [
+          { source: { type: "noise", color: "pink" }, filter: { type: "bandpass", frequency: 900, resonance: 2, envelope: { attack: 0.1, peak: 2600, decay: 0.05 } }, envelope: { attack: 0.03, decay: 0.12, sustain: 0, release: 0.05 }, gain: 0.05 },
+          { source: { type: "sine", frequency: { start: 520, end: 780 } }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.04 }, gain: 0.05 },
+        ],
+      }),
+      // and back down as it leaves
+      close: defineSound({
+        layers: [
+          { source: { type: "noise", color: "pink" }, filter: { type: "bandpass", frequency: 800, resonance: 2, envelope: { attack: 0, peak: 2400, decay: 0.1 } }, envelope: { attack: 0.02, decay: 0.1, sustain: 0, release: 0.04 }, gain: 0.04 },
+          { source: { type: "sine", frequency: { start: 700, end: 460 } }, envelope: { attack: 0.005, decay: 0.08, sustain: 0, release: 0.03 }, gain: 0.04 },
+        ],
+      }),
+      // a switch flipping up, and down
+      on: defineSound({
+        layers: [
+          { source: { type: "sine", frequency: 660 }, envelope: click, gain: 0.07 },
+          { source: { type: "sine", frequency: 990 }, envelope: { ...click, decay: 0.05 }, gain: 0.06, delay: 0.045 },
+        ],
+      }),
+      off: defineSound({
+        layers: [
+          { source: { type: "sine", frequency: 990 }, envelope: click, gain: 0.06 },
+          { source: { type: "sine", frequency: 660 }, envelope: { ...click, decay: 0.05 }, gain: 0.06, delay: 0.045 },
+        ],
+      }),
+      // a bright little confirmation
+      copy: defineSound({
+        layers: [
+          { source: { type: "sine", frequency: 1318.5 }, envelope: { attack: 0.002, decay: 0.07, sustain: 0, release: 0.04 }, gain: 0.07 },
+          { source: { type: "sine", frequency: 1760 }, envelope: { attack: 0.002, decay: 0.12, sustain: 0, release: 0.05 }, gain: 0.06, delay: 0.06 },
+        ],
+      }),
+    }
   })()
   await loading
 }
@@ -86,6 +145,7 @@ export function soundEnabled(): boolean {
 }
 
 export async function setSound(on: boolean) {
+  if (!on) ui("off")
   enabled = on
   try {
     localStorage.setItem(KEY, on ? "on" : "off")
@@ -96,7 +156,7 @@ export async function setSound(on: boolean) {
   if (on) {
     try {
       await load()
-      play("message", true)
+      ui("on")
     } catch {
       enabled = false
       listeners.forEach((fn) => fn())
@@ -130,6 +190,58 @@ function play(cue: Cue, force = false) {
   } catch {
     // audio can fail (device gone); a missing cue is fine
   }
+}
+
+let lastUi = 0
+
+/** Plays an interface sound, when sounds are on. */
+export function ui(cue: UiCue) {
+  if (!enabled) return
+  if (!uiPlayers) {
+    // this is a gesture, so the audio context may start now
+    load().catch(() => {})
+    return
+  }
+  const t = performance.now()
+  // a tap right before a richer cue (a click that opens a panel) is enough
+  if (cue === "tap" && t - lastUi < 60) return
+  lastUi = t
+  try {
+    uiPlayers[cue]()
+  } catch {
+    // no audio device; silence is fine
+  }
+}
+
+const PRESSABLE = 'button, a[href], [role="tab"], [role="option"], [role="menuitem"], [data-row], [data-menu-row], summary, label'
+
+/** Taps (or data-sound cues) for every press in the page. */
+export function installUiSounds() {
+  if (typeof window === "undefined") return
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (e.button !== 0) return
+      const el = (e.target as Element | null)?.closest?.(PRESSABLE)
+      if (!el || (el as HTMLButtonElement).disabled) return
+      const cue = el.closest("[data-sound]")?.getAttribute("data-sound")
+      if (cue === "none") return
+      ui((cue as UiCue) || "tap")
+    },
+    { capture: true },
+  )
+}
+
+/** Plays "open" when a panel opens and "close" when it closes. */
+export function usePanelSound(open: boolean) {
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    ui(open ? "open" : "close")
+  }, [open])
 }
 
 /** The cue for an activity item, if any. */
