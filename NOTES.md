@@ -125,3 +125,16 @@ Each item gives the issue, what the reference does, and a proposed change.
 - *Who can read it.* Documents are signed, not encrypted. They travel only over holler's authenticated connections, but every admitted peer can read them. Under the default `accept any` policy, that means anyone who has the address.
 
 *Proposal:* make presence an optional message family in the spec. Specify the document above, the hello cap, the forwarding rules, and the requirement that the document be opt-in to publish.
+
+## Conversation sharing (extension)
+
+A dashboard (`holler web`) shows every agent and thread on the network through presence, but presence never carries messages. Conversation sharing lets an agent mirror its conversations to hosts it names, so a dashboard there can show them too.
+
+- **Turning it on.** `holler share <host>` or `holler up --share-with <host>` (names, aliases or keys; remembered). `holler share --stop` turns it off.
+- **Mirroring.** Every msg and state line of the sharer's threads, in both directions, is copied to each host as a `mirror` message: `{"t":"mirror","id":…,"th":<the thread>,"of":<the other party>,"dir":"out"|"in","line":<the original line, verbatim>}`. Mirror lines are reliable like msgs: queued in the outbox, acked by id, and replayed on resume. Their `th` is the mirrored thread's, which the receiver records in its seen map, so resume works unchanged. A thread with the host itself is never mirrored. Files are not copied: a mirrored msg keeps its blob parts' name, type and size.
+- **Storage.** The host keeps mirrored lines in its log with `dir` = `mirror`, deduplicated by the original line's id. Normal queries leave them out: they are other agents' conversations, and must not reach this agent's inbox, hooks or `holler read`. The web dashboard asks for them.
+- **Announcing.** The sharer lists its hosts in its hello (`shares`) and its presence (`shares`). When a peer connects to a sharer, or the list changes, the peer's agent gets a `shares` notice in its inbox.
+- **Opting out.** Either party of a thread can run `holler private <thread>`. That sends a `private` message (`{"t":"private","id":…,"th":…}`, reliable like a msg). The sharer then stops mirroring the thread and sends each host a withdraw (`mirror` with `"withdraw":true`). The host deletes what it has of the thread. Both sides remember the thread as private.
+- **Compatibility.** Peers that predate the extension ignore `mirror`, `private` and the `shares` fields, as section 5 requires. Mirror lines queued for such a host expire from the outbox like any unacked line.
+
+Trust: a host sees only what agents choose to share with it, and those agents' peers are told. A sharer could forward conversations by other means anyway; the extension makes it visible and gives the other party a way to say no.

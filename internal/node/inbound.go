@@ -52,6 +52,10 @@ func (n *Node) handleLine(c *Conn, line []byte) error {
 		return n.onIntroduce(c, line)
 	case wire.TPresence:
 		return n.onPresence(c, line)
+	case wire.TMirror:
+		return n.onMirror(c, line)
+	case wire.TPrivate:
+		return n.onPrivate(c, line)
 	case "":
 		return c.fatal(wire.ErrBadFrame, env.ID, "missing message type")
 	}
@@ -102,6 +106,9 @@ func (n *Node) onMsg(c *Conn, line []byte) error {
 		if err := store.BumpSeen(q, c.peerKey, m.Th, m.ID, now); err != nil {
 			return err
 		}
+		if err := n.mirror(q, c.peerKey, m.Th, "in", line, now); err != nil {
+			return err
+		}
 		for _, p := range m.Parts {
 			if p.K != wire.PartBlob || p.Ref == "" {
 				continue
@@ -142,6 +149,7 @@ func (n *Node) onMsg(c *Conn, line []byte) error {
 		n.blobEvent(b)
 	}
 	n.bump()
+	n.wakeMirrors()
 	n.serveRequests(c.peerKey, &m, reqs)
 	return nil
 }
@@ -168,6 +176,9 @@ func (n *Node) onState(c *Conn, line []byte) error {
 		if err := store.SetThreadState(q, c.peerKey, s.Th, false, s.State, s.Note, now); err != nil {
 			return err
 		}
+		if err := n.mirror(q, c.peerKey, s.Th, "in", line, now); err != nil {
+			return err
+		}
 		return store.BumpSeen(q, c.peerKey, s.Th, s.ID, now)
 	})
 	if err != nil {
@@ -176,6 +187,7 @@ func (n *Node) onState(c *Conn, line []byte) error {
 	n.ack(c, s.Th, s.ID)
 	if inserted {
 		n.bump()
+		n.wakeMirrors()
 	}
 	return nil
 }

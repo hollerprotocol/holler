@@ -73,6 +73,9 @@ export interface Thread {
   subject: string
   updated?: string
   local: boolean // this host is one side: the conversation can be opened
+  // The agent that shares this thread with the host (holler share), when
+  // the host is not one side: its conversation can be opened too.
+  shared_by?: string
   peer?: string // local threads: the other side's key
   unread?: number
 }

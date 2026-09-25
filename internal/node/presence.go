@@ -43,6 +43,7 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 		Harness: n.cfg.Harness,
 		Model:   n.Model(),
 		Host:    hostname(),
+		Shares:  n.ShareWith(),
 		TS:      wire.Now(),
 	}
 	peers, err := n.st.Peers()

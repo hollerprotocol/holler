@@ -145,7 +145,11 @@ func (s *Server) snapshot(ctx context.Context) (*State, error) {
 	if err := s.C.Call(ctx, "presence", nil, &net); err != nil {
 		net = api.Network{} // a daemon from before presence
 	}
-	return buildState(&st, threads, &net, time.Now()), nil
+	var mirrored []store.MirroredThread
+	if err := s.C.Call(ctx, "mirrored", nil, &mirrored); err != nil {
+		mirrored = nil // a daemon from before conversation sharing
+	}
+	return buildState(&st, threads, &net, mirrored, time.Now()), nil
 }
 
 // follow streams the daemon's event log, across daemon restarts.
@@ -159,7 +163,7 @@ func (s *Server) follow(ctx context.Context) {
 		}
 		if !s.seeded {
 			var res api.ReadResult
-			if err := s.C.Call(ctx, "read", api.ReadParams{Limit: historySeed}, &res); err == nil {
+			if err := s.C.Call(ctx, "read", api.ReadParams{Limit: historySeed, Mirrors: true}, &res); err == nil {
 				s.mu.Lock()
 				for _, ev := range res.Events {
 					if a, ok := activityFromEvent(ev, self); ok {
@@ -171,7 +175,7 @@ func (s *Server) follow(ctx context.Context) {
 				s.mu.Unlock()
 			}
 		}
-		err := s.C.Stream(ctx, "subscribe", api.SubscribeParams{Since: &after}, func(raw json.RawMessage) error {
+		err := s.C.Stream(ctx, "subscribe", api.SubscribeParams{Since: &after, Mirrors: true}, func(raw json.RawMessage) error {
 			var ev api.Event
 			if err := json.Unmarshal(raw, &ev); err != nil {
 				return err
@@ -328,8 +332,10 @@ func (s *Server) handleThread(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusServiceUnavailable, "starting")
 		return
 	}
+	// A thread this host is part of, or else one another agent (peer)
+	// shares with it.
 	var res api.ReadResult
-	if err := s.C.Call(r.Context(), "read", api.ReadParams{Peer: peer, Th: th, Limit: 1000}, &res); err != nil {
+	if err := s.C.Call(r.Context(), "read", api.ReadParams{Peer: peer, Th: th, Limit: 1000, Mirrors: true}, &res); err != nil {
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -340,6 +346,17 @@ func (s *Server) handleThread(w http.ResponseWriter, r *http.Request) {
 	c := Conversation{Peer: peer, Th: th, Messages: []Message{}}
 	if t := res.Thread; t != nil {
 		c.Subject, c.AState, c.BState = t.Subject, t.MyState, t.TheirState
+	} else {
+		// Mirrored: the sharer's state first, as the page expects the
+		// host's side first.
+		for _, t := range st.Threads {
+			if t.Th == th && t.SharedBy == peer {
+				c.Subject, c.AState, c.BState = t.Subject, t.AState, t.BState
+				if t.B == peer {
+					c.AState, c.BState = t.BState, t.AState
+				}
+			}
+		}
 	}
 	for _, ev := range res.Events {
 		if c.Subject == "" {

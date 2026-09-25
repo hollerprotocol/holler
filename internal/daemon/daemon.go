@@ -104,6 +104,42 @@ func (d *Daemon) Call(ctx context.Context, method string, params json.RawMessage
 	switch method {
 	case "status":
 		return d.status()
+	case "mirrored":
+		return d.n.Store().MirroredThreads()
+	case "set_share":
+		p, err := decode[api.ShareParams](params)
+		if err != nil {
+			return nil, err
+		}
+		var keys []string
+		for _, ref := range p.With {
+			key, err := d.n.ResolvePeer(ref)
+			if err != nil {
+				// A key the node has not met is fine: it may connect later.
+				if _, kerr := wire.ParseKey(ref); kerr != nil {
+					return nil, err
+				}
+				key = ref
+			}
+			keys = append(keys, key)
+		}
+		if err := d.n.SetShareWith(keys); err != nil {
+			return nil, err
+		}
+		return d.shareRefs(), nil
+	case "private":
+		p, err := decode[api.PrivateParams](params)
+		if err != nil {
+			return nil, err
+		}
+		key, err := d.resolve(ctx, p.Peer, p.Th)
+		if err != nil {
+			return nil, err
+		}
+		if err := d.n.MakePrivate(key, p.Th); err != nil {
+			return nil, err
+		}
+		return map[string]string{"peer": key, "th": p.Th}, nil
 	case "set_model":
 		p, err := decode[api.ModelParams](params)
 		if err != nil {
@@ -250,6 +286,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		About:       d.cfg.About,
 		Harness:     n.Harness(),
 		Model:       n.Model(),
+		ShareWith:   d.shareRefs(),
 		Host:        hostname(),
 		Fingerprint: wire.Fingerprint(pub),
 		Version:     version.String(),
@@ -453,7 +490,7 @@ func (d *Daemon) read(p api.ReadParams) (*api.ReadResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := store.Filter{Peer: key, Th: p.Th, Inbox: p.Inbox, UnreadOnly: p.Unread, AfterSeq: p.Since, Limit: p.Limit}
+	f := store.Filter{Peer: key, Th: p.Th, Inbox: p.Inbox, UnreadOnly: p.Unread, AfterSeq: p.Since, Limit: p.Limit, Mirrors: p.Mirrors}
 	if f.Limit <= 0 {
 		f.Limit = 200
 	}
@@ -555,7 +592,7 @@ func (d *Daemon) subscribe(ctx context.Context, p api.SubscribeParams, emit func
 	}
 	for {
 		ch := d.n.Changed()
-		recs, err := d.n.Store().Query(store.Filter{Peer: key, Th: p.Th, Inbox: p.Inbox, AfterSeq: cursor, Limit: 500})
+		recs, err := d.n.Store().Query(store.Filter{Peer: key, Th: p.Th, Inbox: p.Inbox, AfterSeq: cursor, Limit: 500, Mirrors: p.Mirrors})
 		if err != nil {
 			return err
 		}
@@ -698,4 +735,17 @@ func (d *Daemon) introduce(p api.IntroduceParams) (*api.SendResult, error) {
 func hostname() string {
 	h, _ := os.Hostname()
 	return h
+}
+
+// shareRefs names the hosts this agent shares its conversations with.
+func (d *Daemon) shareRefs() []api.PeerRef {
+	refs := []api.PeerRef{}
+	for _, k := range d.n.ShareWith() {
+		ref := api.PeerRef{Key: k}
+		if p, err := store.GetPeer(d.n.Store().DB(), k); err == nil && p != nil {
+			ref.Name = p.Name
+		}
+		refs = append(refs, ref)
+	}
+	return refs
 }

@@ -28,7 +28,8 @@ type Config struct {
 	Harness string `json:"harness,omitempty"` // claude, codex, ...: see internal/harness
 	// DetectedHarness is the harness this daemon's environment points to.
 	DetectedHarness string      `json:"-"`
-	Model           string      `json:"model,omitempty"` // the model the agent runs on
+	Model           string      `json:"model,omitempty"`      // the model the agent runs on
+	ShareWith       []string    `json:"share_with,omitempty"` // keys of hosts to mirror conversations to (wire/mirror.go)
 	Listen          []string    `json:"listen,omitempty"`
 	Advertise       string      `json:"advertise,omitempty"`
 	BlobLimit       int64       `json:"blob_limit,omitempty"`
@@ -85,6 +86,9 @@ func LoadConfig(home string) (Config, error) {
 	}
 	if v, ok := env("HOLLER_ABOUT"); ok {
 		cfg.About = v
+	}
+	if v, ok := env("HOLLER_SHARE_WITH"); ok {
+		cfg.ShareWith = list(v)
 	}
 	if v, ok := env("HOLLER_MODEL"); ok {
 		cfg.Model = v
@@ -148,6 +152,7 @@ func (c Config) nodeConfig() (node.Config, error) {
 		Harness:         c.Harness,
 		DetectedHarness: c.DetectedHarness,
 		Model:           c.Model,
+		ShareWith:       c.ShareWith,
 		Listen:          c.Listen,
 		Advertise:       c.Advertise,
 		BlobLimit:       c.BlobLimit,

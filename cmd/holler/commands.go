@@ -96,6 +96,7 @@ func cmdUp(ctx context.Context, args []string) error {
 	about := f.String("about", "", "what you are working on, sent in hello (remembered)")
 	harnessFlag := f.String("harness", "", "agent harness this agent runs in: "+strings.Join(harness.IDs(), ", ")+" (default: detected; remembered)")
 	presence := f.Bool("presence", false, "publish signed presence so holler watch on connected hosts can see this agent")
+	shareWith := f.StringSlice("share-with", nil, "hosts to mirror your conversations to, e.g. a dashboard (names, aliases or keys; remembered; see holler share)")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -117,6 +118,11 @@ func cmdUp(ctx context.Context, args []string) error {
 	c, err := f.ensureDaemon()
 	if err != nil {
 		return err
+	}
+	if len(*shareWith) > 0 {
+		if err := c.Call(ctx, "set_share", api.ShareParams{With: *shareWith}, nil); err != nil {
+			return err
+		}
 	}
 	st, err := waitAddress(ctx, c, 45*time.Second)
 	if err != nil {
@@ -907,5 +913,73 @@ func cmdModel(ctx context.Context, args []string) error {
 		return printJSON(res)
 	}
 	fmt.Printf("model: %s\n", res.Model)
+	return nil
+}
+
+func cmdShare(ctx context.Context, args []string) error {
+	f := newFlags("share", "[<host>...]", "Show or set the hosts this agent mirrors its conversations to, so a dashboard\nthere (holler web) can show them. The other party of each thread is told, and\ncan keep a thread out with holler private. With hosts, replaces the list;\nwith --stop, stops sharing. Hosts are names, aliases or keys of peers.")
+	stop := f.Bool("stop", false, "stop sharing")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	c, err := f.ensureDaemon()
+	if err != nil {
+		return err
+	}
+	var refs []api.PeerRef
+	switch {
+	case *stop:
+		err = c.Call(ctx, "set_share", api.ShareParams{With: []string{}}, &refs)
+	case f.NArg() > 0:
+		err = c.Call(ctx, "set_share", api.ShareParams{With: f.Args()}, &refs)
+	default:
+		var st api.Status
+		err = c.Call(ctx, "status", nil, &st)
+		refs = st.ShareWith
+	}
+	if err != nil {
+		return err
+	}
+	if *f.json {
+		return printJSON(refs)
+	}
+	if len(refs) == 0 {
+		fmt.Println("not sharing conversations")
+		return nil
+	}
+	fmt.Println("sharing conversations with:")
+	for _, r := range refs {
+		name := r.Name
+		if name == "" {
+			name = wire.ShortKey(r.Key)
+		}
+		fmt.Printf("  %s  %s\n", name, r.Key)
+	}
+	return nil
+}
+
+func cmdPrivate(ctx context.Context, args []string) error {
+	f := newFlags("private", "[<peer>] <thread>", "Keep a thread out of conversation sharing, on both sides: this agent stops\nmirroring it, the other agent is asked to stop too, and hosts that have a copy\nforget it. The peer can be left out when the thread id is unique.")
+	if err := f.Parse(args); err != nil {
+		return err
+	}
+	var peer, th string
+	switch f.NArg() {
+	case 1:
+		th = f.Arg(0)
+	case 2:
+		peer, th = f.Arg(0), f.Arg(1)
+	default:
+		f.Usage()
+		return exitCode(2)
+	}
+	c, err := f.ensureDaemon()
+	if err != nil {
+		return err
+	}
+	if err := c.Call(ctx, "private", api.PrivateParams{Peer: peer, Th: th}, nil); err != nil {
+		return err
+	}
+	fmt.Printf("thread %s is private: it is not shared, and hosts that had a copy are asked to forget it\n", th)
 	return nil
 }

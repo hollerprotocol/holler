@@ -1,8 +1,9 @@
+import { Share2 } from "lucide-react"
 import { Comet } from "loading-dev"
 
 import { Badge, CheckMark, SpinnerRing, XMark } from "@/components/primitives/TaskRows"
 import GlideMenu from "@/components/primitives/GlideMenu"
-import { ago, isEnded } from "@/lib/format"
+import { agentName, ago, isEnded } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent, Thread } from "@/lib/types"
 
@@ -90,7 +91,12 @@ export function ThreadList({
               <span className={`min-w-0 flex-1 truncate text-[13.5px] font-medium ${t.a_state === "closed" && t.b_state === "closed" ? "text-ink-2" : "text-ink"}`}>
                 {t.subject || t.th}
               </span>
-              {!t.local && (
+              {!t.local && t.shared_by && (
+                <span className="shrink-0 text-ink-3" title={`Shared with this host by ${agentName(agents.get(t.shared_by), "one of its agents")}`}>
+                  <Share2 size={11} />
+                </span>
+              )}
+              {!t.local && !t.shared_by && (
                 <span className="shrink-0 text-ink-3" title="Private to the two agents; this host sees its subject and states through gossip">
                   {LockIcon}
                 </span>

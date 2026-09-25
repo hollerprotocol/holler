@@ -71,7 +71,11 @@ type Thread struct {
 	Updated *time.Time `json:"updated,omitempty"`
 	Local   bool       `json:"local"`
 	Peer    string     `json:"peer,omitempty"`
-	Unread  int        `json:"unread,omitempty"`
+	// SharedBy is the agent that shares this thread with this host
+	// (wire/mirror.go), when this host is not part of it: its
+	// conversation can be read too.
+	SharedBy string `json:"shared_by,omitempty"`
+	Unread   int    `json:"unread,omitempty"`
 }
 
 // Stats are the headline numbers.
@@ -139,7 +143,7 @@ func realAbout(s string) string {
 
 // buildState merges the host's own view (status and threads) with every
 // agent's presence.
-func buildState(st *api.Status, local []*store.Thread, net *api.Network, now time.Time) *State {
+func buildState(st *api.Status, local []*store.Thread, net *api.Network, mirrored []store.MirroredThread, now time.Time) *State {
 	s := &State{At: now, Version: st.Version, Self: st.Key, HostName: st.Name, Presence: st.Presence, Address: st.ShareAddress(),
 		Agents: []Agent{}, Links: []Link{}, Threads: []Thread{}}
 	if net == nil {
@@ -299,6 +303,15 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 		}
 	}
 
+	for _, m := range mirrored {
+		t := side(m.Th, m.Subject, m.Sharer, m.Of, "", "", m.Updated)
+		if !t.Local {
+			t.SharedBy = m.Sharer
+		}
+		add(m.Sharer)
+		add(m.Of)
+	}
+
 	for _, t := range threads {
 		if t.AState == "" {
 			t.AState = wire.StateOpen
@@ -408,8 +421,8 @@ func diffStates(prev, cur *State) []Activity {
 	}
 	var out []Activity
 	for _, t := range slices.Backward(cur.Threads) { // oldest first
-		if t.Local || t.A == cur.Self || t.B == cur.Self {
-			continue
+		if t.Local || t.A == cur.Self || t.B == cur.Self || t.SharedBy != "" {
+			continue // first-hand, or mirrored: the lines themselves are activity
 		}
 		at := cur.At
 		if t.Updated != nil {
@@ -439,6 +452,14 @@ func activityFromEvent(ev api.Event, self string) (Activity, bool) {
 	a := Activity{At: ev.At, Kind: ev.Type, From: ev.Peer, To: self, Th: ev.Th, Subject: ev.Subject, Local: true}
 	if ev.Dir == "out" {
 		a.From, a.To = self, ev.Peer
+	}
+	if ev.Dir == "mirror" {
+		// A line another agent (ev.Peer) shares from its thread with "of".
+		a.Local = false
+		a.From, a.To = mirrorSides(ev)
+		if s, _ := ev.Meta["subject"].(string); s != "" {
+			a.Subject = s
+		}
 	}
 	meta := func(k string) string {
 		if v, ok := ev.Meta[k]; ok && v != nil {
@@ -539,7 +560,9 @@ type WebPart struct {
 // messageFromEvent turns a local thread's event into a conversation line.
 func messageFromEvent(ev api.Event, self string) (Message, bool) {
 	m := Message{Seq: ev.Seq, At: ev.At, From: ev.Peer, Kind: ev.Type}
-	if ev.Dir == "out" {
+	if ev.Dir == "mirror" {
+		m.From, _ = mirrorSides(ev)
+	} else if ev.Dir == "out" {
 		m.From = self
 		acked := ev.Acked
 		m.Acked = &acked
@@ -569,4 +592,17 @@ func messageFromEvent(ev api.Event, self string) (Message, bool) {
 		return m, false
 	}
 	return m, true
+}
+
+// mirrorSides says who wrote a mirrored line, and to whom.
+func mirrorSides(ev api.Event) (from, to string) {
+	of, _ := ev.Meta["of"].(string)
+	from, _ = ev.Meta["from"].(string)
+	if from == "" {
+		from = ev.Peer
+	}
+	if from == ev.Peer {
+		return from, of
+	}
+	return from, ev.Peer
 }

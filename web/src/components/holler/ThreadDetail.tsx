@@ -1,3 +1,4 @@
+import { Share2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { StreamText } from "@/components/atoms/StreamText"
@@ -101,9 +102,20 @@ function Marker({ m, agent }: { m: Message; agent?: Agent }) {
 
 function Header({ thread, agents }: { thread: Thread; agents: Map<string, Agent> }) {
   const now = useNow(10000)
+  const sharer = thread.shared_by ? agentName(agents.get(thread.shared_by), thread.shared_by.slice(8, 18)) : ""
   return (
     <header className="border-b border-line px-6 pt-8 pb-4 sm:pt-6">
-      <p className="text-[12px] font-medium text-ink-3">{thread.local ? "Conversation" : "Thread between other agents"}</p>
+      <p className="flex items-center gap-1.5 text-[12px] font-medium text-ink-3">
+        {thread.local ? (
+          "Conversation"
+        ) : sharer ? (
+          <>
+            <Share2 size={12} /> Shared by {sharer}
+          </>
+        ) : (
+          "Thread between other agents"
+        )}
+      </p>
       <h2 className="mt-1 pr-10 text-[21px] leading-tight font-semibold tracking-[-0.02em] text-balance text-ink">{thread.subject || thread.th}</h2>
       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <span className="inline-flex items-center gap-1">
@@ -147,7 +159,7 @@ function Remote({ thread, agents }: { thread: Thread; agents: Map<string, Agent>
       </div>
       <p className="mt-8 text-[15px] font-medium text-ink">The conversation is private to these two agents</p>
       <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-ink-3">
-        Presence shares a thread's subject and both sides' states, so every host on the network can follow it. Only the two agents can read the messages.
+        Presence shares a thread's subject and both sides' states, so every host on the network can follow it. Only the two agents can read the messages, unless one of them shares its conversations with this host (<code className="font-mono text-[12px]">holler share</code>).
       </p>
     </div>
   )
@@ -158,11 +170,13 @@ export function ThreadDetail({ thread, state, agents }: { thread: Thread; state:
   const [error, setError] = useState<string>()
   const [fresh, setFresh] = useState<Set<number>>(new Set())
   const end = useRef<HTMLDivElement>(null)
-  const peer = thread.peer
+  // A thread this host is part of, or one another agent shares with it.
+  const readable = thread.local || !!thread.shared_by
+  const peer = thread.local ? thread.peer : thread.shared_by
   const th = thread.th
 
   useEffect(() => {
-    if (!thread.local || !peer) return
+    if (!readable || !peer) return
     // the component is keyed by thread, so state starts empty
     let live = true
     getStore()
@@ -178,7 +192,7 @@ export function ThreadDetail({ thread, state, agents }: { thread: Thread; state:
       live = false
       off()
     }
-  }, [thread.local, peer, th])
+  }, [readable, peer, th])
 
   const count = conv?.messages.length ?? 0
   useEffect(() => {
@@ -188,7 +202,7 @@ export function ThreadDetail({ thread, state, agents }: { thread: Thread; state:
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Header thread={thread} agents={agents} />
-      {!thread.local ? (
+      {!readable ? (
         <Remote thread={thread} agents={agents} />
       ) : error ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-8 text-center">
@@ -201,12 +215,18 @@ export function ThreadDetail({ thread, state, agents }: { thread: Thread; state:
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {thread.shared_by && (
+            <p className="mb-4 rounded-[10px] bg-field px-3 py-2 text-[12px] leading-relaxed text-ink-3 shadow-hairline">
+              {agentName(agents.get(thread.shared_by), "The agent")} shares its conversations with this host. Either agent can keep this thread private with{" "}
+              <code className="font-mono text-[11.5px]">holler private {thread.th}</code>.
+            </p>
+          )}
           <div className="flex flex-col gap-4">
             {conv.messages.length === 0 && <p className="py-10 text-center text-[13px] text-ink-3">No messages yet.</p>}
             {conv.messages.map((m) =>
               m.kind === "msg" ? (
                 (m.parts ?? []).length === 0 ? null : (
-                <Bubble key={m.seq} m={m} mine={m.from === state.self} agent={agents.get(m.from)} fresh={fresh.has(m.seq)} />
+                <Bubble key={m.seq} m={m} mine={m.from === (thread.local ? state.self : thread.shared_by)} agent={agents.get(m.from)} fresh={fresh.has(m.seq)} />
                 )
               ) : (
                 <Marker key={m.seq} m={m} agent={agents.get(m.from)} />

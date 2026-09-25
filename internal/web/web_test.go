@@ -66,7 +66,7 @@ func network(now time.Time, bossState string) (*api.Status, []*store.Thread, *ap
 func TestBuildStateIsNetworkWide(t *testing.T) {
 	now := time.Now()
 	st, local, net := network(now, wire.StateOpen)
-	s := buildState(st, local, net, now)
+	s := buildState(st, local, net, nil, now)
 	if s.Self != hostKey || s.HostName != "ops@laptop" {
 		t.Errorf("self %q %q", s.Self, s.HostName)
 	}
@@ -145,7 +145,7 @@ func stateOf(t Thread, key string) string {
 func TestOwnStateWins(t *testing.T) {
 	now := time.Now()
 	st, local, net := network(now, wire.StateDone)
-	s := buildState(st, local, net, now)
+	s := buildState(st, local, net, nil, now)
 	for _, th := range s.Threads {
 		if th.Th == "thr_fix" && stateOf(th, bossKey) != wire.StateDone {
 			t.Errorf("boss on thr_fix = %s; worker's stale view won", stateOf(th, bossKey))
@@ -156,7 +156,7 @@ func TestOwnStateWins(t *testing.T) {
 func TestDiffStatesReportsOtherAgents(t *testing.T) {
 	now := time.Now()
 	st, local, net := network(now, wire.StateOpen)
-	prev := buildState(st, local, net, now)
+	prev := buildState(st, local, net, nil, now)
 
 	st, local, net = network(now, wire.StateDone)
 	net.Agents[0].Threads = append(net.Agents[0].Threads, wire.PresenceThread{Th: "thr_new", Peer: bossKey, Subject: "Another", Mine: wire.StateOpen})
@@ -165,7 +165,7 @@ func TestDiffStatesReportsOtherAgents(t *testing.T) {
 	// The host's own thread changes too, but that comes from the event log.
 	local[0].TheirState = wire.StateDone
 	net.Agents[0].Threads[0].Mine = wire.StateDone
-	cur := buildState(st, local, net, now.Add(time.Second))
+	cur := buildState(st, local, net, nil, now.Add(time.Second))
 
 	got := map[string]Activity{}
 	for _, a := range diffStates(prev, cur) {
@@ -208,11 +208,16 @@ func (f *fakeDaemon) Call(ctx context.Context, method string, params json.RawMes
 		return local, nil
 	case "presence":
 		return net, nil
+	case "mirrored":
+		return []store.MirroredThread{{Sharer: workerKey, Of: builderKey, Th: "thr_build", Subject: "Build it", Lines: 1, Updated: f.now}}, nil
 	case "read":
 		var p api.ReadParams
 		json.Unmarshal(params, &p)
 		res := api.ReadResult{Events: []api.Event{}}
 		for _, ev := range f.events {
+			if ev.Dir == "mirror" && !p.Mirrors {
+				continue
+			}
 			if (p.Th == "" || ev.Th == p.Th) && (p.Peer == "" || ev.Peer == p.Peer) {
 				res.Events = append(res.Events, ev)
 			}
@@ -413,5 +418,46 @@ func TestEventStream(t *testing.T) {
 	}
 	if s := next("state"); !strings.Contains(s, `"done"`) {
 		t.Errorf("state after change: %s", s)
+	}
+}
+
+// A thread another agent shares with this host can be read like its own.
+func TestMirroredThread(t *testing.T) {
+	fd, hs := startServer(t)
+	raw, _ := json.Marshal(wire.Msg{Envelope: wire.Envelope{T: wire.TMsg, ID: "01MIRROR", Th: "thr_build"}, Parts: []wire.Part{{K: wire.PartText, Text: "artifacts are up"}}})
+	fd.mu.Lock()
+	fd.events = append(fd.events, api.Event{Seq: 2, At: time.Now(), Dir: "mirror", Type: wire.TMsg, Peer: workerKey, Th: "thr_build", Msg: raw,
+		Meta: map[string]any{"of": builderKey, "from": builderKey, "subject": "Build it"}})
+	fd.mu.Unlock()
+
+	var st State
+	getJSON(t, hs.URL+"/api/state", &st)
+	var build *Thread
+	for i := range st.Threads {
+		if st.Threads[i].Th == "thr_build" {
+			build = &st.Threads[i]
+		}
+	}
+	if build == nil || build.SharedBy != workerKey || build.Local {
+		t.Fatalf("mirrored thread in state: %+v", build)
+	}
+	var c Conversation
+	if code := getJSON(t, hs.URL+"/api/thread?peer="+workerKey+"&th=thr_build", &c); code != 200 {
+		t.Fatalf("mirrored thread: %d", code)
+	}
+	if len(c.Messages) != 1 || c.Messages[0].From != builderKey || c.Messages[0].Parts[0].Text != "artifacts are up" {
+		t.Errorf("mirrored conversation: %+v", c)
+	}
+	if c.AState != wire.StateWaiting || c.BState != wire.StateWorking {
+		t.Errorf("states from the sharer's side: %q %q", c.AState, c.BState)
+	}
+}
+
+func TestActivityFromMirror(t *testing.T) {
+	raw, _ := json.Marshal(wire.Msg{Envelope: wire.Envelope{T: wire.TMsg, ID: "01X", Th: "thr_build"}, Parts: []wire.Part{{K: wire.PartText, Text: "hi"}}})
+	ev := api.Event{Dir: "mirror", Type: wire.TMsg, Peer: workerKey, Th: "thr_build", Msg: raw, Meta: map[string]any{"of": builderKey, "from": workerKey, "subject": "Build it"}}
+	a, ok := activityFromEvent(ev, hostKey)
+	if !ok || a.Local || a.From != workerKey || a.To != builderKey || a.Text != "hi" || a.Subject != "Build it" {
+		t.Errorf("activity from a mirrored line: %+v", a)
 	}
 }

@@ -62,6 +62,8 @@ func init() {
 		{"watch", "", "live dashboard of the agents on the network (alias: top)", cmdWatch},
 		{"web", "", "the dashboard in a browser: the whole network, live", cmdWeb},
 		{"model", "[<model>]", "show or set the model this agent runs on (shared with the network)", cmdModel},
+		{"share", "[<host>...]", "show or set the hosts this agent shares its conversations with", cmdShare},
+		{"private", "[<peer>] <thread>", "keep a thread out of conversation sharing", cmdPrivate},
 		{"version", "", "print the version", cmdVersion},
 	}
 }

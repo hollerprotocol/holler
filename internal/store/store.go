@@ -84,6 +84,15 @@ CREATE TABLE IF NOT EXISTS log (
 );
 CREATE INDEX IF NOT EXISTS log_th ON log (th, seq);
 
+-- Threads kept out of conversation sharing, because their other party
+-- asked (a private message) or this agent did (wire/mirror.go).
+CREATE TABLE IF NOT EXISTS private_threads (
+	peer TEXT NOT NULL,
+	th   TEXT NOT NULL,
+	at   INTEGER NOT NULL,
+	PRIMARY KEY (peer, th)
+);
+
 CREATE TABLE IF NOT EXISTS seen (
 	peer    TEXT NOT NULL,
 	th      TEXT NOT NULL,
@@ -557,7 +566,9 @@ func (s *Store) strings(query string, args ...any) ([]string, error) {
 // --- log ---
 
 // Record is one entry in the message log. Dir is "in" (received), "out"
-// (sent) or "sys" (a local event such as a connection coming up).
+// (sent), "sys" (a local event such as a connection coming up) or "mirror"
+// (a line of another agent's thread that it shares with this host; Peer is
+// that agent, ID the original line's id, Meta says who the other party is).
 type Record struct {
 	Seq   int64          `json:"seq"`
 	Peer  string         `json:"peer"`
@@ -642,10 +653,14 @@ type Filter struct {
 	Inbox      bool // received records plus local events worth a reader's attention
 	Limit      int  // default 1000
 	Last       bool // with Limit: the last N records, still returned in order
+	// Mirrors includes mirrored lines (dir "mirror"), which are left out
+	// unless asked for by this or by Dirs: they are other agents' threads,
+	// not this agent's business.
+	Mirrors bool
 }
 
 // InboxSys lists the local (sys) event types that belong in an inbox.
-var InboxSys = []string{"blob", "bye", "refused"}
+var InboxSys = []string{"blob", "bye", "refused", "shares", "private"}
 
 // Query returns log records matching f, in log order.
 func (s *Store) Query(f Filter) ([]Record, error) {
@@ -664,6 +679,8 @@ func (s *Store) Query(f Filter) ([]Record, error) {
 		for _, d := range f.Dirs {
 			args = append(args, d)
 		}
+	} else if !f.Mirrors {
+		where = append(where, "dir != 'mirror'")
 	}
 	if len(f.Types) > 0 {
 		where = append(where, "t IN ("+placeholders(len(f.Types))+")")
@@ -679,7 +696,7 @@ func (s *Store) Query(f Filter) ([]Record, error) {
 		where = append(where, "read = 0")
 	}
 	if f.Inbox {
-		where = append(where, "(dir = 'in' OR (dir = 'sys' AND t IN ('blob', 'bye', 'refused')))")
+		where = append(where, "(dir = 'in' OR (dir = 'sys' AND t IN ('blob', 'bye', 'refused', 'shares', 'private')))")
 	}
 	query := `SELECT seq, peer, dir, id, t, th, line, at, acked, read, meta FROM log`
 	if len(where) > 0 {
@@ -1014,4 +1031,68 @@ func (s *Store) DeleteGrant(hash string) (int64, error) {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// --- conversation sharing ---
+
+// SetPrivate keeps a thread out of conversation sharing. It reports
+// whether the thread was not private before.
+func SetPrivate(q Q, peer, th string, now time.Time) (bool, error) {
+	res, err := q.Exec(`INSERT INTO private_threads (peer, th, at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`, peer, th, ms(now))
+	if err != nil {
+		return false, err
+	}
+	k, _ := res.RowsAffected()
+	return k > 0, nil
+}
+
+// IsPrivate reports whether a thread is kept out of conversation sharing.
+func IsPrivate(q Q, peer, th string) (bool, error) {
+	var one int
+	err := q.QueryRow(`SELECT 1 FROM private_threads WHERE peer = ? AND th = ?`, peer, th).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// DeleteMirrored forgets what sharer mirrored of its thread th with of.
+func DeleteMirrored(q Q, sharer, th, of string) (int64, error) {
+	res, err := q.Exec(`DELETE FROM log WHERE peer = ? AND dir = 'mirror' AND th = ? AND json_extract(meta, '$.of') = ?`, sharer, th, of)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// MirroredThread is a thread another agent shares with this host.
+type MirroredThread struct {
+	Sharer  string    `json:"sharer"` // the agent that shares it
+	Of      string    `json:"of"`     // the other party
+	Th      string    `json:"th"`
+	Subject string    `json:"subject,omitempty"`
+	Lines   int       `json:"lines"`
+	Updated time.Time `json:"updated"`
+}
+
+// MirroredThreads lists the threads other agents share with this host.
+func (s *Store) MirroredThreads() ([]MirroredThread, error) {
+	rows, err := s.db.Query(`SELECT peer, json_extract(meta, '$.of'), th, max(json_extract(meta, '$.subject')), count(*), max(at)
+		FROM log WHERE dir = 'mirror' GROUP BY peer, th, json_extract(meta, '$.of') ORDER BY max(at) DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []MirroredThread{}
+	for rows.Next() {
+		var m MirroredThread
+		var of, subject sql.NullString
+		var at int64
+		if err := rows.Scan(&m.Sharer, &of, &m.Th, &subject, &m.Lines, &at); err != nil {
+			return nil, err
+		}
+		m.Of, m.Subject, m.Updated = of.String, subject.String, fromMS(at)
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }

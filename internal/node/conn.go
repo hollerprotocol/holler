@@ -18,7 +18,7 @@ import (
 
 // helloCaps are the message families this implementation speaks beyond
 // the mandatory ones.
-var helloCaps = []string{"chat", "blob", "grant", "introduce", wire.TPresence}
+var helloCaps = []string{"chat", "blob", "grant", "introduce", wire.TPresence, wire.TMirror}
 
 // Conn is one connection to a peer, from hello to close.
 type Conn struct {
@@ -160,6 +160,7 @@ func (c *Conn) handshake() error {
 		Caps:     helloCaps,
 		About:    n.about(),
 		Addr:     n.advertised(),
+		Shares:   n.ShareWith(),
 	})
 	if err != nil {
 		return fmt.Errorf("send hello: %w", err)
@@ -540,6 +541,7 @@ func (n *Node) afterHandshake(c *Conn) error {
 		n.st.AddrResult(c.peerKey, c.via, nil, now)
 	}
 	n.sysEvent(c.peerKey, "connected", map[string]any{"name": h.Name, "about": h.About, "via": c.via, "outbound": c.outbound, "caps": h.Caps})
+	n.noteShares(c.peerKey, h.Shares)
 	return nil
 }
 

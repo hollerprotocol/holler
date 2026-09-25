@@ -102,6 +102,18 @@ func Event(ev api.Event, o Options) string {
 		b.WriteByte('\n')
 	case "refused":
 		fmt.Fprintf(&b, " · refused a connection: %v\n", ev.Meta["reason"])
+	case "shares":
+		if names, _ := ev.Meta["names"].([]any); len(names) > 0 {
+			var ns []string
+			for _, x := range names {
+				ns = append(ns, fmt.Sprint(x))
+			}
+			fmt.Fprintf(&b, " · shares its conversations with %s, so they can read your messages to it. `holler private <thread>` keeps a thread out.\n", strings.Join(ns, ", "))
+		} else {
+			fmt.Fprintf(&b, " · stopped sharing its conversations\n")
+		}
+	case "private":
+		fmt.Fprintf(&b, " · asked to keep thread %s private; it is no longer shared\n", ev.Th)
 	default:
 		fmt.Fprintf(&b, " · %s\n", ev.Type)
 	}

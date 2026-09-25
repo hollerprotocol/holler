@@ -36,6 +36,10 @@ type Config struct {
 	// can change while the node runs (SetModel). Remembered like the name.
 	Model string
 
+	// ShareWith lists the keys of hosts to mirror this node's conversations
+	// to (wire/mirror.go). Nil keeps what was set before; empty stops.
+	ShareWith []string
+
 	// Harness is the agent harness this node runs in (internal/harness),
 	// shared in presence. Remembered like the name.
 	Harness string
@@ -107,6 +111,7 @@ func (c *Config) setDefaults() {
 // Node is a running holler peer.
 type Node struct {
 	cfg   Config
+	share sharing
 	model sync.Mutex // guards cfg.Model, which changes at run time
 	priv  ed25519.PrivateKey
 	pub   ed25519.PublicKey
@@ -197,6 +202,7 @@ func Open(cfg Config) (*Node, error) {
 	if n.cfg.Harness == "" {
 		n.cfg.Harness = cfg.DetectedHarness
 	}
+	n.loadSharing()
 	if n.cfg.Name == "" {
 		host, _ := os.Hostname()
 		n.cfg.Name = "holler@" + host

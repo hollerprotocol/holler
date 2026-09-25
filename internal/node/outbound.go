@@ -113,6 +113,7 @@ func (n *Node) Send(req SendRequest) (*SendResult, error) {
 	}
 	n.bump()
 	n.kick(req.Peer)
+	n.wakeMirrors()
 	return &SendResult{ID: id, Th: th, Peer: req.Peer, NewThread: isNew, Connected: n.Connected(req.Peer)}, nil
 }
 
@@ -131,6 +132,11 @@ func (n *Node) queue(q store.Q, peer string, env wire.Envelope, v any, subject s
 	if env.Th != "" {
 		if err := store.TouchThread(q, peer, env.Th, subject, "us", now); err != nil {
 			return err
+		}
+		if env.T == wire.TMsg || env.T == wire.TState {
+			if err := n.mirror(q, peer, env.Th, "out", line, now); err != nil {
+				return err
+			}
 		}
 	}
 	// New traffic lifts a bye: the peer will be reconnected to.
@@ -200,6 +206,7 @@ func (n *Node) SetState(peer, th, state, note string) (*SendResult, error) {
 	}
 	n.bump()
 	n.kick(peer)
+	n.wakeMirrors()
 	return &SendResult{ID: id, Th: th, Peer: peer, Connected: n.Connected(peer)}, nil
 }
 

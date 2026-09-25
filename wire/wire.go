@@ -111,6 +111,10 @@ type Hello struct {
 	// so that either side can reconnect (section 4.3). Peers that do not
 	// know it ignore it, as section 5 requires.
 	Addr string `json:"addr,omitempty"`
+
+	// Shares is an extension (mirror.go): the keys of the hosts this agent
+	// mirrors its conversations to, so the other party knows.
+	Shares []string `json:"shares,omitempty"`
 }
 
 // Auth proves key possession (section 7.2).

@@ -16,9 +16,10 @@ type Status struct {
 	Short       string     `json:"short"`
 	Name        string     `json:"name"`
 	About       string     `json:"about"`
-	Harness     string     `json:"harness,omitempty"` // the agent harness this daemon runs in
-	Model       string     `json:"model,omitempty"`   // the model the agent runs on, as last reported
-	Host        string     `json:"host,omitempty"`    // this machine's hostname
+	Harness     string     `json:"harness,omitempty"`    // the agent harness this daemon runs in
+	ShareWith   []PeerRef  `json:"share_with,omitempty"` // hosts this agent mirrors its conversations to
+	Model       string     `json:"model,omitempty"`      // the model the agent runs on, as last reported
+	Host        string     `json:"host,omitempty"`       // this machine's hostname
 	Fingerprint string     `json:"fingerprint"`
 	Version     string     `json:"version"`
 	Home        string     `json:"home"`
@@ -170,6 +171,8 @@ type ReadParams struct {
 	Since  int64  `json:"since,omitempty"`  // after this seq
 	Limit  int    `json:"limit,omitempty"`
 	Mark   bool   `json:"mark,omitempty"` // mark returned records read
+	// Mirrors includes lines other agents share with this host.
+	Mirrors bool `json:"mirrors,omitempty"`
 }
 
 // ReadResult for "read" and "wait".
@@ -197,6 +200,8 @@ type SubscribeParams struct {
 	Since *int64 `json:"since,omitempty"`
 	Inbox bool   `json:"inbox,omitempty"`
 	Mark  bool   `json:"mark,omitempty"`
+	// Mirrors includes lines other agents share with this host.
+	Mirrors bool `json:"mirrors,omitempty"`
 }
 
 // GrantParams for "grant".
@@ -232,4 +237,22 @@ type ModelParams struct {
 type ModelResult struct {
 	Model   string `json:"model"`
 	Changed bool   `json:"changed"`
+}
+
+// PeerRef names a peer.
+type PeerRef struct {
+	Key  string `json:"key"`
+	Name string `json:"name,omitempty"`
+}
+
+// ShareParams for "set_share": the hosts to mirror this agent's
+// conversations to (names, aliases, keys); empty stops sharing.
+type ShareParams struct {
+	With []string `json:"with"`
+}
+
+// PrivateParams for "private": keep a thread out of conversation sharing.
+type PrivateParams struct {
+	Peer string `json:"peer,omitempty"`
+	Th   string `json:"th"`
 }
