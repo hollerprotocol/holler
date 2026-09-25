@@ -120,6 +120,9 @@ func (n *Node) onMsg(c *Conn, line []byte) error {
 		return nil
 	})
 	if err != nil {
+		for _, b := range arrived {
+			n.unplaceBlob(b)
+		}
 		return n.storageFailed(c, m.ID, err)
 	}
 	n.ack(c, m.Th, m.ID)

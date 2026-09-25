@@ -146,31 +146,38 @@ func (n *Node) noteInboundBlob(q store.Q, peer, th string, p wire.Part, now time
 	}
 	var done *store.Blob
 	if b.Status == "complete" {
+		n.placeBlob(b)
 		cp := *b
 		done = &cp
 	}
 	return refused, done, store.PutBlob(q, b)
 }
 
-// blobEvent announces a received blob once both its data and the msg that
-// names it have arrived, whichever came last. The file moves to
-// blobs/<peer>/<ref>/<name>, so the path the agent sees ends in the name
-// the sender gave it.
-func (n *Node) blobEvent(b *store.Blob) {
-	if b.Name != "" {
-		dst := filepath.Join(filepath.Dir(b.Path), safeName(b.Ref)+".d", safeName(b.Name))
-		if dst != b.Path && os.MkdirAll(filepath.Dir(dst), 0o700) == nil && os.Rename(b.Path, dst) == nil {
-			b.Path = dst
-			n.st.Tx(func(q store.Q) error {
-				cur, err := store.GetBlob(q, b.Peer, "in", b.Ref)
-				if err != nil || cur == nil {
-					return err
-				}
-				cur.Path = dst
-				return store.PutBlob(q, cur)
-			})
-		}
+// placeBlob moves a complete blob whose name is known to
+// blobs/<peer>/<ref>.d/<name>, so the path the agent sees ends in the name
+// the sender gave it. It runs inside the transaction that makes the blob
+// both complete and named, so no reader ever sees a path that is about to
+// change. If that transaction fails, unplaceBlob puts the file back.
+func (n *Node) placeBlob(b *store.Blob) {
+	src := n.blobPath(b.Peer, b.Ref)
+	if b.Status != "complete" || b.Name == "" || b.Path != src {
+		return
 	}
+	dst := filepath.Join(filepath.Dir(src), safeName(b.Ref)+".d", safeName(b.Name))
+	if os.MkdirAll(filepath.Dir(dst), 0o700) == nil && os.Rename(src, dst) == nil {
+		b.Path = dst
+	}
+}
+
+func (n *Node) unplaceBlob(b *store.Blob) {
+	if src := n.blobPath(b.Peer, b.Ref); b.Path != src {
+		os.Rename(b.Path, src)
+	}
+}
+
+// blobEvent announces a received blob once both its data and the msg that
+// names it have arrived, whichever came last.
+func (n *Node) blobEvent(b *store.Blob) {
 	n.sysEvent(b.Peer, "blob", map[string]any{"ref": b.Ref, "th": b.Th, "name": b.Name, "mime": b.Mime, "size": b.Received, "path": b.Path})
 }
 
@@ -228,6 +235,7 @@ func (n *Node) onChunk(c *Conn, line []byte) error {
 		b.Updated = now
 		if ch.Last {
 			b.Status = "complete"
+			n.placeBlob(b) // named already if the msg came first
 			done := *b
 			completed = &done
 		}
@@ -237,6 +245,9 @@ func (n *Node) onChunk(c *Conn, line []byte) error {
 		return bumpSeen()
 	})
 	if err != nil {
+		if completed != nil {
+			n.unplaceBlob(completed)
+		}
 		return n.storageFailed(c, ch.ID, err)
 	}
 	if refuse != "" {
