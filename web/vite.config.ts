@@ -3,6 +3,8 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+const publicHost = process.env.VITE_PUBLIC_HOST
+
 // https://vite.dev/config/
 export default defineConfig({
   base: "/",
@@ -14,7 +16,14 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
+    // Behind an HTTPS proxy (a sprite's URL, say): VITE_PUBLIC_HOST names
+    // the public host, so Vite accepts it and hot reload connects back
+    // through the proxy.
+    ...(publicHost && {
+      allowedHosts: [publicHost],
+      hmr: { host: publicHost, protocol: "wss", clientPort: 443 },
+    }),
     proxy: {
       // `holler web --listen 127.0.0.1:7788`, or HOLLER_WEB=http://host:port
       "/api": { target: process.env.HOLLER_WEB || "http://127.0.0.1:7788", changeOrigin: true },
