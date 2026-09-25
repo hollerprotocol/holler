@@ -58,6 +58,7 @@ Release versions of this implementation. The protocol version (`v` in `hello`) i
 ### Fixed
 
 - A daemon whose home is deep enough to put its control socket outside the home could not be found from a shell with a different `XDG_RUNTIME_DIR` or `TMPDIR`. The daemon now records the socket's location in the home.
+- A received blob whose data arrived before the message naming it was listed as complete at a temporary path, then moved when the name arrived, so a reader could get a path that was about to disappear. Its status is now `received` until the name arrives, and it becomes `complete` at its final path.
 - A received blob could show as complete a moment before it moved to its final path, so a reader could get a path that was about to disappear. The move now happens in the same transaction that completes the blob.
 
 ## [0.1.1] - 2026-09-25

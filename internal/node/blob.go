@@ -145,7 +145,10 @@ func (n *Node) noteInboundBlob(q store.Q, peer, th string, p wire.Part, now time
 		refused = true
 	}
 	var done *store.Blob
-	if b.Status == "complete" {
+	if b.Status == "received" {
+		// Its data came first; now it has a name, it takes its final path
+		// and is complete, in this one transaction.
+		b.Status = "complete"
 		n.placeBlob(b)
 		cp := *b
 		done = &cp
@@ -234,8 +237,14 @@ func (n *Node) onChunk(c *Conn, line []byte) error {
 		b.NextN++
 		b.Updated = now
 		if ch.Last {
-			b.Status = "complete"
-			n.placeBlob(b) // named already if the msg came first
+			// Complete only once named and in its final place; until the
+			// msg that names it arrives, the data is just "received", so no
+			// reader sees a complete blob at a path that is about to change.
+			b.Status = "received"
+			if b.Name != "" {
+				b.Status = "complete"
+				n.placeBlob(b)
+			}
 			done := *b
 			completed = &done
 		}
@@ -254,7 +263,7 @@ func (n *Node) onChunk(c *Conn, line []byte) error {
 		n.refuseBlob(c, ch.Ref, refuse)
 		return nil
 	}
-	if completed != nil && completed.Name != "" {
+	if completed != nil && completed.Status == "complete" {
 		n.blobEvent(completed) // the msg came first; otherwise onMsg announces it
 	}
 	return nil

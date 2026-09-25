@@ -891,7 +891,7 @@ type Blob struct {
 	Received int64     `json:"received"`
 	NextN    int       `json:"next_n"`
 	Path     string    `json:"path,omitempty"`
-	Status   string    `json:"status"` // pending, complete, refused
+	Status   string    `json:"status"` // pending; received (data in, awaiting the msg that names it); complete; refused
 	Updated  time.Time `json:"updated"`
 }
 
