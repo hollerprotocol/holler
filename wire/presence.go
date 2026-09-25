@@ -11,7 +11,8 @@ import (
 
 // TPresence is the presence extension: a signed summary of what an agent is
 // doing, gossiped across the network so that any connected host can watch
-// it (NOTES.md, "Presence"). Peers that do not know the type ignore it.
+// it (NOTES.md, "Presence gossip"). It is also the hello cap that asks for
+// it: presence is only sent to peers that list it.
 const TPresence = "presence"
 
 // Presence limits.

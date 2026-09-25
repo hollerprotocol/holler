@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -141,6 +142,61 @@ func TestPresenceExpiry(t *testing.T) {
 	recs, _ := n.Store().Query(store.Filter{Dirs: []string{"sys"}, Types: []string{"presence"}})
 	if len(recs) != 2 || recs[0].Meta["event"] != "left" {
 		t.Fatalf("left events: %+v", recs)
+	}
+}
+
+// handshakeCaps is handshake with the given hello caps.
+func (p *rawPeer) handshakeCaps(caps string) {
+	p.t.Helper()
+	my := fmt.Sprintf(`{"t":"hello","id":"%s","ts":"%s","v":0,"key":"%s","name":"raw","nonce":"%s","caps":%s}`,
+		wire.NewIDGen().New(), wire.Now(), p.key, wire.Nonce(32), caps)
+	p.send(my)
+	env, theirs := p.read()
+	if env.T != wire.THello {
+		p.t.Fatalf("first line %s", env.T)
+	}
+	var h wire.Hello
+	json.Unmarshal(theirs, &h)
+	if !slices.Contains(h.Caps, wire.TPresence) {
+		p.t.Fatalf("hello caps %v lack presence", h.Caps)
+	}
+	p.send(fmt.Sprintf(`{"t":"auth","id":"x2","ts":"%s","sig":"%s"}`, wire.Now(), wire.SignAuth(p.priv, []byte(my), theirs)))
+	if env, _ := p.read(); env.T != wire.TAuth {
+		p.t.Fatalf("expected auth, got %s", env.T)
+	}
+	if env, _ := p.read(); env.T != wire.TResume {
+		p.t.Fatalf("expected resume, got %s", env.T)
+	}
+	p.send(fmt.Sprintf(`{"t":"resume","id":"x3","ts":"%s","seen":{}}`, wire.Now()))
+}
+
+// presenceWithin reads until a presence line arrives or d passes.
+func (p *rawPeer) presenceWithin(d time.Duration) bool {
+	p.c.SetReadDeadline(time.Now().Add(d))
+	for {
+		line, err := p.r.ReadLine()
+		if err != nil {
+			return false
+		}
+		if env, err := wire.ParseEnvelope(line); err == nil && env.T == wire.TPresence {
+			return true
+		}
+	}
+}
+
+// TestPresenceOnlyToPeersThatSpeakIt: presence goes only to peers that list
+// it in their hello caps. Others, like the Python peer, never see it.
+func TestPresenceOnlyToPeersThatSpeakIt(t *testing.T) {
+	n := testNode(t, "n", func(c *Config) { c.Presence = true })
+	fluent := dialRaw(t, n)
+	fluent.handshakeCaps(`["chat","presence"]`)
+	plain := dialRaw(t, n)
+	plain.handshake() // caps ["chat"]
+	if !fluent.presenceWithin(5 * time.Second) {
+		t.Fatal("a peer that speaks presence got none")
+	}
+	if plain.presenceWithin(3 * time.Second) {
+		t.Fatal("presence sent to a peer that does not speak it")
 	}
 }
 

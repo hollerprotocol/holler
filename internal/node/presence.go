@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"slices"
 	"strconv"
 	"time"
 
@@ -127,22 +128,18 @@ func (n *Node) presenceMsg(doc json.RawMessage, hops int) wire.PresenceMsg {
 	return wire.PresenceMsg{Envelope: wire.Envelope{T: wire.TPresence, ID: n.ids.New(), TS: wire.Now()}, Doc: doc, Hops: hops}
 }
 
-// forwardPresence sends a document to every connected peer except those
-// listed.
+// speaksPresence reports whether a peer listed presence in its hello caps.
+// Presence goes only to peers that did: the rest would have to ignore it,
+// and some pass unknown types on to their agent.
+func speaksPresence(c *Conn) bool { return slices.Contains(c.hello.Caps, wire.TPresence) }
+
+// forwardPresence sends a document to every connected peer that speaks
+// presence, except those listed.
 func (n *Node) forwardPresence(doc json.RawMessage, hops int, except ...string) {
 	n.mu.Lock()
 	var conns []*Conn
 	for key, p := range n.peers {
-		if p.conn == nil {
-			continue
-		}
-		skip := false
-		for _, e := range except {
-			if e == key {
-				skip = true
-			}
-		}
-		if !skip {
+		if p.conn != nil && speaksPresence(p.conn) && !slices.Contains(except, key) {
 			conns = append(conns, p.conn)
 		}
 	}
@@ -182,7 +179,7 @@ func (n *Node) presenceLoop() {
 			}
 		case <-heartbeat.C:
 		}
-		if !n.anyConnected() {
+		if !n.anyPresencePeer() {
 			continue
 		}
 		p, err := n.LocalPresence()
@@ -199,11 +196,11 @@ func (n *Node) presenceLoop() {
 	}
 }
 
-func (n *Node) anyConnected() bool {
+func (n *Node) anyPresencePeer() bool {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	for _, p := range n.peers {
-		if p.conn != nil {
+		if p.conn != nil && speaksPresence(p.conn) {
 			return true
 		}
 	}
@@ -256,6 +253,9 @@ func (n *Node) onPresence(c *Conn, line []byte) error {
 // document, and every fresh one we know. This is the anti-entropy step, like
 // resume is for messages.
 func (n *Node) presenceOnConnect(c *Conn) {
+	if !speaksPresence(c) {
+		return
+	}
 	n.presMu.Lock()
 	own := n.presDoc
 	n.presMu.Unlock()
