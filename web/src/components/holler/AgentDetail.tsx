@@ -49,7 +49,7 @@ export function AgentDetail({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <header className="relative overflow-hidden px-6 pt-10 pb-6">
+      <header className="relative overflow-hidden px-6 pt-14 pb-6">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 left-1/2 size-80 -translate-x-1/2 rounded-full opacity-40 blur-3xl"

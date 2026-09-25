@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { Comet, Ripple } from "loading-dev"
 import {
   Activity as ActivityIcon,
+  Bot as BotIcon,
+  Circle as CircleIcon,
   ChevronDown,
   LayoutGrid,
   MessagesSquare,
@@ -23,6 +25,7 @@ import {
 import { Shimmer } from "@/components/atoms/Shimmer"
 import GlideMenu from "@/components/primitives/GlideMenu"
 import { useTheme } from "@/components/theme-provider"
+import { setAvatarStyle, useAvatarStyle } from "@/lib/avatar"
 import { agentName, splitName } from "@/lib/format"
 import { harnessName } from "@/lib/harness"
 import type { View } from "@/lib/route"
@@ -135,6 +138,7 @@ export function Sidebar({
   onClose?: () => void
 }) {
   const sound = useSound()
+  const avatars = useAvatarStyle()
   const { setTheme } = useTheme()
   const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
   const [agentsOpen, setAgentsOpen] = useState(true)
@@ -370,6 +374,13 @@ export function Sidebar({
               label={<span className={c.tone}>{c.label}</span>}
               title={conn === "live" ? "Streaming live from the host" : "The stream dropped; click to retry now"}
               onClick={() => getStore().reconnect()}
+            />
+            <RailButton
+              icon={avatars === "bots" ? <BotIcon size={17} /> : <CircleIcon size={17} />}
+              label={avatars === "bots" ? "Bot avatars" : "Orb avatars"}
+              title="Switch between Bot avatars and gradient orbs"
+              sound="select"
+              onClick={() => setAvatarStyle(avatars === "bots" ? "orbs" : "bots")}
             />
             <RailButton
               icon={sound ? <Volume2 size={17} /> : <VolumeX size={17} />}
