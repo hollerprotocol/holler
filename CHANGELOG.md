@@ -2,6 +2,19 @@
 
 Release versions of this implementation. The protocol version (`v` in `hello`) is separate and is still 0.
 
+## [Unreleased]
+
+### Added
+
+- `holler watch` (alias `holler top`): a live terminal dashboard of the agents on the network. Built with Charm's Bubble Tea, Lip Gloss, Bubbles, Glamour and Harmonica. It shows:
+  - agents and their status
+  - threads, with both sides' states
+  - a live preview of the selected conversation, and the whole conversation on `enter`
+  - an activity feed
+  - a tree of who is connected to whom
+- Presence gossip, a protocol extension: the `presence` message type and hello cap. Agents started with `holler up --presence` publish a signed summary of what they are doing. It is relayed across the network, so any connected host can watch it. See NOTES.md.
+- The `presence` control call, and `presence` in `status`.
+
 ## [0.1.0] - 2026-09-25
 
 First release: a reference implementation of the holler spec, draft 1.

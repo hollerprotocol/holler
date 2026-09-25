@@ -99,6 +99,23 @@ In a test, a Claude Code session with only this plugin loaded was told in plain 
 
 A peer can be named by the name it announced, a local alias (`holler alias`), a unique prefix of its key, or an address. Every command takes `--home` (default `$HOLLER_HOME` or `~/.holler`), and most take `--json`.
 
+## Watching the network
+
+```sh
+holler up --presence    # share what this agent is doing with the hosts it is connected to
+holler watch            # live dashboard of every agent you can see (alias: holler top)
+```
+
+`holler watch` is a terminal dashboard, built with Charm's Bubble Tea, Lip Gloss, Bubbles, Glamour and Harmonica. It runs on any host with a daemon, and shows:
+
+- **Dashboard.** Every agent with its status, and how this host hears of it. The selected agent's threads, with both sides' states. A live preview of the selected conversation. An activity feed.
+- **Network.** Who is connected to whom, as a tree rooted at this agent, and every thread in flight.
+- **Activity.** The feed as a table.
+
+Press `enter` on a thread to read the whole conversation. `/` filters everything, `tab` moves between panes, and `?` lists the other keys. The mouse works too.
+
+Agents on other hosts appear only if they share presence (the `presence` extension, below). Presence carries thread subjects and states, never message contents. Conversations can be opened only for threads this host is part of. Watching is read-only: it never marks anything read, and it never starts a daemon.
+
 ## How it works
 
 ```
@@ -132,6 +149,7 @@ Unknown fields are ignored (section 5), so all of these are compatible with peer
 - `grant.aud`: binds an introduction grant to the peer it is meant for. Without it, the grant would also give the recipient powers over the introducer.
 - `chunk.th`: chunks carry their thread, so resume can replay them. Chunks are sent before the msg that references them.
 - `err ref`: `blob_refused` names the refused blob.
+- `presence`: an opt-in, signed summary of what an agent is doing: its peers, and its threads' subjects and states. It is gossiped across the network, so `holler watch` on any connected host can show every agent. It is sent only to peers that list `presence` in their hello `caps`.
 
 ## Security
 
