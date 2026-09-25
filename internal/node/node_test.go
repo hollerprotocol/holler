@@ -667,3 +667,40 @@ func TestPlainTCPRefusedToPublicAddresses(t *testing.T) {
 		t.Fatalf("loopback TCP dial: %v", err)
 	}
 }
+
+// An explicit harness is remembered and beats what the environment of a
+// later start suggests; a detected one is only a fallback, never remembered.
+func TestHarnessPrecedence(t *testing.T) {
+	open := func(home string, cfg Config) *Node {
+		t.Helper()
+		cfg.Home = home
+		n, err := Open(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	home := t.TempDir()
+	n := open(home, Config{Harness: "codex", DetectedHarness: "claude"})
+	if n.Harness() != "codex" {
+		t.Errorf("explicit harness: %q", n.Harness())
+	}
+	n.Close()
+	n = open(home, Config{DetectedHarness: "claude"})
+	if n.Harness() != "codex" {
+		t.Errorf("after a restart from another harness's shell: %q, want the remembered codex", n.Harness())
+	}
+	n.Close()
+
+	home = t.TempDir()
+	n = open(home, Config{DetectedHarness: "claude"})
+	if n.Harness() != "claude" {
+		t.Errorf("detected harness: %q", n.Harness())
+	}
+	n.Close()
+	n = open(home, Config{})
+	defer n.Close()
+	if n.Harness() != "" {
+		t.Errorf("a detected harness was remembered: %q", n.Harness())
+	}
+}

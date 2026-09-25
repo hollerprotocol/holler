@@ -22,21 +22,23 @@ import (
 // Config is the daemon configuration: home/config.json, overridden by
 // HOLLER_* environment variables, overridden by command-line flags.
 type Config struct {
-	Home         string      `json:"-"`
-	Name         string      `json:"name,omitempty"`
-	About        string      `json:"about,omitempty"`
-	Harness      string      `json:"harness,omitempty"` // claude, codex, ...: see internal/harness
-	Model        string      `json:"model,omitempty"`   // the model the agent runs on
-	Listen       []string    `json:"listen,omitempty"`
-	Advertise    string      `json:"advertise,omitempty"`
-	BlobLimit    int64       `json:"blob_limit,omitempty"`
-	PingInterval string      `json:"ping_interval,omitempty"`
-	OutboxTTL    string      `json:"outbox_ttl,omitempty"`
-	Policy       node.Policy `json:"policy,omitzero"`
-	Trace        bool        `json:"trace,omitempty"`
-	Plaintext    bool        `json:"allow_plaintext,omitempty"` // plain TCP to public addresses
-	Verbose      bool        `json:"verbose,omitempty"`         // include tailcat's own logs
-	Presence     bool        `json:"presence,omitempty"`        // publish signed presence (NOTES.md)
+	Home    string `json:"-"`
+	Name    string `json:"name,omitempty"`
+	About   string `json:"about,omitempty"`
+	Harness string `json:"harness,omitempty"` // claude, codex, ...: see internal/harness
+	// DetectedHarness is the harness this daemon's environment points to.
+	DetectedHarness string      `json:"-"`
+	Model           string      `json:"model,omitempty"` // the model the agent runs on
+	Listen          []string    `json:"listen,omitempty"`
+	Advertise       string      `json:"advertise,omitempty"`
+	BlobLimit       int64       `json:"blob_limit,omitempty"`
+	PingInterval    string      `json:"ping_interval,omitempty"`
+	OutboxTTL       string      `json:"outbox_ttl,omitempty"`
+	Policy          node.Policy `json:"policy,omitzero"`
+	Trace           bool        `json:"trace,omitempty"`
+	Plaintext       bool        `json:"allow_plaintext,omitempty"` // plain TCP to public addresses
+	Verbose         bool        `json:"verbose,omitempty"`         // include tailcat's own logs
+	Presence        bool        `json:"presence,omitempty"`        // publish signed presence (NOTES.md)
 }
 
 // DefaultHome is $HOLLER_HOME or ~/.holler.
@@ -90,10 +92,9 @@ func LoadConfig(home string) (Config, error) {
 	if v, ok := env("HOLLER_HARNESS"); ok {
 		cfg.Harness = harness.Normalize(v)
 	}
-	if cfg.Harness == "" {
-		// Started by an agent: its harness marks the environment.
-		cfg.Harness = harness.Detect(os.Getenv)
-	}
+	// Started by an agent: its harness marks the environment. This is only
+	// a fallback; the node prefers a harness set explicitly, now or before.
+	cfg.DetectedHarness = harness.Detect(os.Getenv)
 	if v, ok := env("HOLLER_LISTEN"); ok {
 		cfg.Listen = list(v)
 	}
@@ -141,16 +142,17 @@ func LoadConfig(home string) (Config, error) {
 // nodeConfig converts to the engine's configuration.
 func (c Config) nodeConfig() (node.Config, error) {
 	nc := node.Config{
-		Home:      c.Home,
-		Name:      c.Name,
-		About:     c.About,
-		Harness:   c.Harness,
-		Model:     c.Model,
-		Listen:    c.Listen,
-		Advertise: c.Advertise,
-		BlobLimit: c.BlobLimit,
-		Policy:    c.Policy,
-		Trace:     c.Trace,
+		Home:            c.Home,
+		Name:            c.Name,
+		About:           c.About,
+		Harness:         c.Harness,
+		DetectedHarness: c.DetectedHarness,
+		Model:           c.Model,
+		Listen:          c.Listen,
+		Advertise:       c.Advertise,
+		BlobLimit:       c.BlobLimit,
+		Policy:          c.Policy,
+		Trace:           c.Trace,
 
 		AllowPlaintext: c.Plaintext,
 		Presence:       c.Presence,

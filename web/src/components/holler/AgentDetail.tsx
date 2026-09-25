@@ -98,9 +98,11 @@ export function AgentDetail({
               </span>
             </Fact>
           )}
-          <Fact label="Machine">
-            {agent.host ? <code className="font-mono text-[12.5px] text-ink">{agent.host}</code> : <span className="text-ink-3">Not shared</span>}
-          </Fact>
+          {agent.host && (
+            <Fact label="Machine">
+              <code className="font-mono text-[12.5px] text-ink">{agent.host}</code>
+            </Fact>
+          )}
           <Fact label="Model">
             {agent.model ? (
               <code className="font-mono text-[12.5px] text-ink">{agent.model}</code>

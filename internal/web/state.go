@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -184,7 +185,13 @@ func buildState(st *api.Status, local []*store.Thread, net *api.Network, now tim
 	me := add(st.Key)
 	me.Status, me.Sharing, me.Version, me.Hops, me.Seen = statusSelf, st.Presence, st.Version, 0, seen(now)
 	me.About = cmp.Or(realAbout(net.Self.About), realAbout(st.About))
-	me.Harness, me.Model, me.Host = st.Harness, st.Model, st.Host
+	me.Harness, me.Model = st.Harness, st.Model
+	// A daemon older than the host field: the page is served from the same
+	// machine, so its hostname is this one.
+	me.Host = st.Host
+	if me.Host == "" {
+		me.Host, _ = os.Hostname()
+	}
 
 	links := map[[2]string]*Link{}
 	link := func(x, y string, up bool) {

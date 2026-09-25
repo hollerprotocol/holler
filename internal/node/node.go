@@ -39,6 +39,10 @@ type Config struct {
 	// Harness is the agent harness this node runs in (internal/harness),
 	// shared in presence. Remembered like the name.
 	Harness string
+	// DetectedHarness is the fallback when no harness was ever set: the one
+	// the environment of whoever started the node points to. It is not
+	// remembered, since the next start may come from another harness.
+	DetectedHarness string
 
 	// Listen lists addresses to accept connections on: "tailcat",
 	// "tcp:host:port" or "unix:/path".
@@ -189,6 +193,9 @@ func Open(cfg Config) (*Node, error) {
 		} else if v, ok, _ := st.GetKV(f.key); ok {
 			*f.v = v
 		}
+	}
+	if n.cfg.Harness == "" {
+		n.cfg.Harness = cfg.DetectedHarness
 	}
 	if n.cfg.Name == "" {
 		host, _ := os.Hostname()
