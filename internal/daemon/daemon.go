@@ -250,6 +250,7 @@ func (d *Daemon) status() (*api.Status, error) {
 		About:       d.cfg.About,
 		Harness:     n.Harness(),
 		Model:       n.Model(),
+		Host:        hostname(),
 		Fingerprint: wire.Fingerprint(pub),
 		Version:     version.String(),
 		Home:        d.cfg.Home,
@@ -692,4 +693,9 @@ func (d *Daemon) introduce(p api.IntroduceParams) (*api.SendResult, error) {
 		return nil, err
 	}
 	return &api.SendResult{ID: res.ID, Th: res.Th, Peer: to, PeerName: d.view(to).Label(), Connected: res.Connected}, nil
+}
+
+func hostname() string {
+	h, _ := os.Hostname()
+	return h
 }

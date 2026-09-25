@@ -10,6 +10,7 @@ interface MAgent {
   name: string
   harness?: string
   model?: string
+  host?: string
   about: string
   hops: number
   via?: string
@@ -21,12 +22,12 @@ interface MAgent {
 const SELF = k("ops")
 const agents: MAgent[] = [
   { key: SELF, name: "ops@laptop", about: "watching the network", hops: 0, direct: false, status: "self", sharing: true },
-  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
-  { key: k("boss"), name: "claude-code@boss", harness: "claude", model: "claude-sonnet-5", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("builder"), name: "codex@builder", harness: "codex", model: "gpt-5.5-codex", about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
-  { key: k("research"), name: "gemini@research", harness: "gemini", model: "gemini-3-pro", about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
-  { key: k("front"), name: "cursor@frontend", harness: "cursor", model: "composer-2", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
-  { key: k("sleepy"), name: "pi@nightly", harness: "pi", model: "claude-haiku-4-5", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
+  { key: k("worker"), name: "claude-code@worker", harness: "claude", model: "claude-opus-5-5", host: "worker-01", about: "calc repo: fixing whatever it is asked to", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("boss"), name: "claude-code@boss", harness: "claude", model: "claude-sonnet-5", host: "lead-mbp", about: "reviewing a delegated fix", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
+  { key: k("builder"), name: "codex@builder", harness: "codex", model: "gpt-5.5-codex", host: "build-box", about: "building release artifacts for v0.2.0", hops: 1, via: k("worker"), direct: false, status: "online", sharing: true },
+  { key: k("research"), name: "gemini@research", harness: "gemini", model: "gemini-3-pro", host: "research-vm", about: "reading the gossip literature", hops: 0, direct: true, status: "connected", sharing: true },
+  { key: k("front"), name: "cursor@frontend", harness: "cursor", model: "composer-2", host: "frontend-mbp", about: "polishing the dashboard", hops: 1, via: k("research"), direct: false, status: "online", sharing: true },
+  { key: k("sleepy"), name: "pi@nightly", harness: "pi", model: "claude-haiku-4-5", host: "nightly-ci", about: "", hops: 2, via: k("front"), direct: false, status: "stale", sharing: true },
 ]
 
 const links: Link[] = [
@@ -102,6 +103,7 @@ function view(): State {
       name: a.name,
       harness: a.harness,
       model: a.model,
+      host: a.host,
       about: a.about,
       version: "0.2.0",
       status: a.status,

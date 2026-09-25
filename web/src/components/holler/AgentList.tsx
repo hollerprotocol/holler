@@ -41,6 +41,7 @@ export function AgentList({ agents, selected, onSelect }: { agents: Agent[]; sel
                 {a.model && <ModelTag model={a.model} className="ml-0.5 min-w-0 shrink" />}
               </span>
               <span className="block truncate text-[12px] text-ink-3">
+                {a.host && <span className="font-mono text-[11.5px]">{a.host} · </span>}
                 {a.status === "self" ? "this host" : a.about || (a.direct ? "connected to this host" : "via gossip")}
               </span>
             </span>

@@ -43,6 +43,8 @@ export interface Agent {
   harness?: string
   // The model it runs on, as the agent reports it ("claude-opus-5-5").
   model?: string
+  // The hostname of the machine it runs on.
+  host?: string
   status: AgentStatus
   sharing: boolean // publishes presence (else we only know it as a peer)
   direct: boolean // connected to the host

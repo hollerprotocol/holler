@@ -1,3 +1,4 @@
+import { Server } from "lucide-react"
 import { agentName, agoText, splitName } from "@/lib/format"
 import { useNow } from "@/lib/store"
 import type { Agent, State, Thread } from "@/lib/types"
@@ -59,7 +60,16 @@ export function AgentDetail({
           <Orb agentKey={agent.key} size={104} working={agent.working} dim={dim} harness={agent.harness} />
           <h2 className="mt-5 text-[26px] leading-tight font-semibold tracking-[-0.025em] text-ink">{who}</h2>
           {host && <p className="text-[14px] text-ink-3">@{host}</p>}
-          {agent.model && <ModelTag model={agent.model} className="mt-2 text-[12px]" />}
+          {(agent.model || agent.host) && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              <ModelTag model={agent.model} className="text-[12px]" />
+              {agent.host && (
+                <span className="inline-flex items-center gap-1 text-[12px] text-ink-3">
+                  <Server size={12} /> on <span className="font-mono text-ink-2">{agent.host}</span>
+                </span>
+              )}
+            </div>
+          )}
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-medium text-ink-2 shadow-hairline">
             <span className="size-1.5 rounded-full" style={{ background: st.dot }} />
             {st.label}
@@ -88,6 +98,9 @@ export function AgentDetail({
               </span>
             </Fact>
           )}
+          <Fact label="Machine">
+            {agent.host ? <code className="font-mono text-[12.5px] text-ink">{agent.host}</code> : <span className="text-ink-3">Not shared</span>}
+          </Fact>
           <Fact label="Model">
             {agent.model ? (
               <code className="font-mono text-[12.5px] text-ink">{agent.model}</code>

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"slices"
 	"strconv"
 	"time"
@@ -41,6 +42,7 @@ func (n *Node) LocalPresence() (*wire.Presence, error) {
 		Version: version.String(),
 		Harness: n.cfg.Harness,
 		Model:   n.Model(),
+		Host:    hostname(),
 		TS:      wire.Now(),
 	}
 	peers, err := n.st.Peers()
@@ -294,4 +296,10 @@ func clipText(s string, n int) string {
 		return s
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// hostname is this machine's name, as presence shares it.
+func hostname() string {
+	h, _ := os.Hostname()
+	return clipText(h, 100)
 }

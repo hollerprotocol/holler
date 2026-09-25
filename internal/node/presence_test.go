@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -58,8 +59,8 @@ func TestPresenceGossipChain(t *testing.T) {
 	if th == nil || th.Subject != "Run the suite" || th.Mine != wire.StateWorking || th.Peer != b.Key() {
 		t.Fatalf("thread in presence: %+v", p.Threads)
 	}
-	if p.Harness != "codex" || p.Model != "gpt-5.5" {
-		t.Errorf("harness and model in presence: %q %q", p.Harness, p.Model)
+	if h, _ := os.Hostname(); p.Harness != "codex" || p.Model != "gpt-5.5" || p.Host != h {
+		t.Errorf("harness, model and host in presence: %q %q %q", p.Harness, p.Model, p.Host)
 	}
 	// A new model reaches the network without a restart.
 	if changed, err := c.SetModel("gpt-5.5-mini"); !changed || err != nil {

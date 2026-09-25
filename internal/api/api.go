@@ -18,6 +18,7 @@ type Status struct {
 	About       string     `json:"about"`
 	Harness     string     `json:"harness,omitempty"` // the agent harness this daemon runs in
 	Model       string     `json:"model,omitempty"`   // the model the agent runs on, as last reported
+	Host        string     `json:"host,omitempty"`    // this machine's hostname
 	Fingerprint string     `json:"fingerprint"`
 	Version     string     `json:"version"`
 	Home        string     `json:"home"`

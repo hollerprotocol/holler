@@ -40,6 +40,7 @@ type Presence struct {
 	Version string           `json:"version,omitempty"`
 	Harness string           `json:"harness,omitempty"` // the agent harness: claude, codex, cursor, ...
 	Model   string           `json:"model,omitempty"`   // the model the agent runs on, as it reports it
+	Host    string           `json:"host,omitempty"`    // the hostname of the machine it runs on
 	Seq     int64            `json:"seq"`
 	TS      string           `json:"ts"`
 	Peers   []PresencePeer   `json:"peers,omitempty"`
