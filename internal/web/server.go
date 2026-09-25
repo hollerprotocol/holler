@@ -513,7 +513,8 @@ func (s *Server) handleBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	var blobs []*store.Blob
 	if err := s.C.Call(r.Context(), "blobs", api.PeerParams{Peer: peer}, &blobs); err != nil {
-		httpError(w, http.StatusBadGateway, err.Error())
+		// Mostly an unknown peer; either way, there is no such file here.
+		httpError(w, http.StatusNotFound, "no such file on this host")
 		return
 	}
 	var b *store.Blob
