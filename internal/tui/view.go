@@ -222,9 +222,16 @@ func (m model) box(title string, count int, lines []string, w, h int, focused bo
 		titleStyle = t.accentText
 	}
 	b := lipgloss.NewStyle().Foreground(bc)
-	label := titleStyle.Render(title)
+	suffix := ""
 	if count >= 0 {
-		label += t.faintText.Render(fmt.Sprintf(" %d", count))
+		suffix = fmt.Sprintf(" %d", count)
+	}
+	// The top edge is "╭─ title count ─╮": cut the title so at least one
+	// ─ is left before the corner.
+	title = ansi.Truncate(title, max(0, w-6-len(suffix)), "…")
+	label := titleStyle.Render(title)
+	if suffix != "" {
+		label += t.faintText.Render(suffix)
 	}
 	label = " " + label + " "
 	inner := max(1, w-4)

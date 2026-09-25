@@ -42,7 +42,7 @@ func cmdDaemon(ctx context.Context, args []string) error {
 	trust := f.StringArray("trust", nil, "issuer key whose grants to honor (repeatable)")
 	trace := f.Bool("trace", false, "log every protocol line")
 	verbose := f.Bool("verbose", false, "include tailcat's own logs")
-	presence := f.Bool("presence", false, "publish signed presence (threads, states, peers) so `holler watch` on any connected host can see this agent")
+	presence := f.Bool("presence", false, "publish signed presence (threads, states, peers) so holler watch on any connected host can see this agent")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func cmdUp(ctx context.Context, args []string) error {
 	f := newFlags("up", "", "Start the daemon in the background if it is not running, wait for the tailcat\naddress, and print the identity and the address to share.")
 	name := f.String("name", "", "name to present to peers, e.g. claude-code@myhost (remembered)")
 	about := f.String("about", "", "what you are working on, sent in hello (remembered)")
-	presence := f.Bool("presence", false, "publish signed presence so `holler watch` on connected hosts can see this agent")
+	presence := f.Bool("presence", false, "publish signed presence so holler watch on connected hosts can see this agent")
 	if err := f.Parse(args); err != nil {
 		return err
 	}

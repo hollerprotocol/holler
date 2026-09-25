@@ -280,6 +280,48 @@ func TestEveryViewFitsTheTerminal(t *testing.T) {
 	}
 }
 
+// Long subjects and names are cut to fit, never pushing panes off screen.
+func TestLongNamesFit(t *testing.T) {
+	long := strings.Repeat("Run the integration suite on the release branch and report which tests flake ", 2)
+	host := "a-build-machine-with-a-very-long-hostname.internal.example.com"
+	for _, size := range [][2]int{{250, 60}, {180, 48}, {130, 40}, {100, 30}, {80, 24}} {
+		w, hh := size[0], size[1]
+		h := newHarness(t, w, hh)
+		snap := h.src.snap
+		snap.Status.Name = "claude-code@" + host
+		snap.Status.Peers[0].Name = "claude-code@worker." + host
+		snap.Threads[0].Subject = long
+		for i := range snap.Net.Agents {
+			a := &snap.Net.Agents[i]
+			a.Presence.Name += "." + host
+			for j := range a.Presence.Threads {
+				a.Presence.Threads[j].Subject = long
+			}
+		}
+		h.run(h.m.fetchSnapshot())
+		h.run(h.m.fetchThread(workerKey, "thr_fix"))
+		check := func(view string) {
+			t.Helper()
+			lines := strings.Split(h.screen(), "\n")
+			if len(lines) > hh {
+				t.Errorf("%dx%d %s: %d lines", w, hh, view, len(lines))
+			}
+			for i, l := range lines {
+				if n := ansi.StringWidth(l); n > w {
+					t.Errorf("%dx%d %s: line %d is %d wide: %q", w, hh, view, i, n, ansi.Strip(l))
+				}
+			}
+		}
+		check("dashboard, local thread")
+		h.press("j", "j")
+		check("dashboard, remote thread")
+		h.press("2")
+		check("network")
+		h.press("3")
+		check("activity")
+	}
+}
+
 func TestPreviewFollowsTheSelectedThread(t *testing.T) {
 	h := newHarness(t, 120, 40)
 	if h.m.layout().preview.w == 0 {
